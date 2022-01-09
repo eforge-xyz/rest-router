@@ -1,0 +1,32 @@
+{
+  "name": "mysql2-express-crud",
+  "version": "0.0.1",
+  "description": "Generative API Creation using mysql2 and express libraries in node js",
+  "main": "src/app.js",
+  "scripts": {
+    "dev": "nodemon src/app.js",
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AvinashSKaranth/mysql2-express-crud.git"
+  },
+  "keywords": [
+    "mysql2",
+    "express",
+    "generative",
+    "rest",
+    "api"
+  ],
+  "author": "Avinash S Karanth",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/AvinashSKaranth/mysql2-express-crud/issues"
+  },
+  "homepage": "https://github.com/AvinashSKaranth/mysql2-express-crud#readme",
+  "dependencies": {
+    "express": "^4.17.2",
+    "mysql-migrations": "^1.0.7",
+    "mysql2": "^2.3.3"
+  }
+}
