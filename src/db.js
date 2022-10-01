@@ -1,62 +1,121 @@
-var mysql = require("mysql2");
-var pool = null;
+const mysql = require("mysql2");
+let pool = null;
+const WHERE_INVALID = "Invalid where condition";
+
 function connect(credentails) {
   pool = mysql.createPool(credentails);
   return pool;
 }
-
 function query(sql, parameter = []) {
   return new Promise((resolve) => {
-    pool.query(sql, parameter, function (error, results, fields) {
-      if (error) throw error;
+    pool.query(sql, parameter, function (error, results) {
+      if (error) {
+        reject(error);
+      }
       resolve(results);
     });
   });
 }
-
-function where(where_eq = [], where_like = []) {
-  if (Object.keys(where_eq).length + Object.keys(where_like).length < 1)
-    return { query: " ", value: [] };
-  var where_key = [];
-  var where_value = [];
-  for (var i in where_eq) {
-    if (typeof where_eq[i] === "object") {
-      where_key.push("?? in " + array_param(where_eq[i].length));
-      where_value.push(i);
-      where_value.push(...where_eq[i]);
-    } else {
-      where_key.push("?? = ?");
-      where_value.push(i);
-      where_value.push(where_eq[i]);
+function where(filter) {
+  try {
+    if (
+      filter === null ||
+      filter === "" ||
+      filter.length === 0 ||
+      filter[0].length == [[]] ||
+      filter[0][0].length == [[[]]]
+    ) {
+      return {
+        query: "",
+        value: [],
+      };
     }
+  } catch (err) {
+    return {
+      query: "",
+      value: [],
+    };
   }
-  for (i in where_like) {
-    where_key.push("?? like ?");
-    where_value.push(i);
-    where_value.push("%" + where_like[i] + "%");
+  const valid_conditionals = ["=", "like", "in", "<", ">", "<=", ">=", "!="];
+  let conditionOr = [];
+  let value = [];
+  for (const i of filter) {
+    let conditionAnd = [];
+    for (const j of i) {
+      if (!valid_conditionals.includes(j[1])) {
+        return false;
+      }
+      if (j[1] === "in" && !Array.isArray(j[2])) {
+        return false;
+      }
+      if (j[1] === "in") {
+        conditionAnd.push("?? in (" + arrayParam(j[2].length) + ")");
+        value.push(j[0], ...j[2]);
+      } else if (j[1] === "like") {
+        conditionAnd.push("?? like ?");
+        value.push(j[0], "%" + j[2] + "%");
+      } else {
+        conditionAnd.push("?? " + j[1] + " ?");
+        value.push(j[0], j[2]);
+      }
+    }
+    conditionOr.push(conditionAnd.join(" AND "));
   }
+  let query = "WHERE ((" + conditionOr.join(") OR (") + "))";
   return {
-    query: " WHERE " + where_key.join(" AND ") + " ",
-    value: where_value,
+    query,
+    value,
   };
 }
+/*
+function where(whereEq = [], whereLike = []) {
+  if (Object.keys(whereEq).length + Object.keys(whereLike).length < 1) {
+    return { query: " ", value: [] };
+  }
+  const whereKey = [];
+  const whereValue = [];
+  for (const [i, v] of Object.entries(whereEq)) {
+    if (typeof v === "object") {
+      whereKey.push("?? in " + arrayParam(v.length));
+      whereValue.push(i);
+      whereValue.push(...v);
+    } else {
+      whereKey.push("?? = ?");
+      whereValue.push(i);
+      whereValue.push(v);
+    }
+  }
+  for (const [i, v] of Object.entries(whereLike)) {
+    whereKey.push("?? like ?");
+    whereValue.push(i);
+    whereValue.push(`%${v}%`);
+  }
+  return {
+    query: ` WHERE ${whereKey.join(" AND ")} `,
+    value: whereValue,
+  };
+}
+*/
 
-function get(table, where_arr = [], where_like_arr = []) {
-  var response = {};
+function get(table, filter = []) {
+  const response = {};
   return new Promise((resolve) => {
-    const where_data = where(where_arr, where_like_arr);
-    const statement = "SELECT * FROM ?? " + where_data["query"] + ";";
+    const whereData = where(filter);
+    if (whereData == null) {
+      resolve({ message: WHERE_INVALID });
+    }
+    const statement = `SELECT * FROM ?? ${whereData["query"]};`;
     pool.query(
       statement,
-      [table, ...where_data["value"]],
+      [table, ...whereData["value"]],
       function (error, results) {
         if (error) {
           resolve({ message: error.sqlMessage });
         }
         response[table] = results;
-        response["count"] = count(table, where_arr, where_like_arr).then(
-          (value) => {
-            response["count"] = value;
+        response["count"] = qcount(table, whereArr, whereLikeArr).then(
+          (count) => {
+            response["count"] = count;
             resolve(response);
           }
         );
@@ -65,29 +124,25 @@ function get(table, where_arr = [], where_like_arr = []) {
   });
 }
 
-function list(
-  table,
-  where_arr = [],
-  where_like_arr = [],
-  page = 0,
-  limit = 30
-) {
-  var response = {};
+function list(table, filter = [], page = 0, limit = 30) {
+  const response = {};
   return new Promise((resolve) => {
-    const where_data = where(where_arr, where_like_arr);
-    const statement =
-      "SELECT * FROM ?? " + where_data["query"] + " LIMIT ? OFFSET ?;";
+    const whereData = where(filter);
+    if (whereData == null) {
+      resolve({ message: WHERE_INVALID });
+    }
+    const statement = `SELECT * FROM ?? ${whereData["query"]} LIMIT ? OFFSET ?;`;
     pool.query(
       statement,
-      [table, ...where_data["value"], limit, page * limit],
+      [table, ...whereData["value"], limit, page * limit],
       function (error, results) {
         if (error) {
           resolve({ message: error.sqlMessage });
         }
         response[table] = results;
-        response["count"] = count(table, where_arr, where_like_arr).then(
-          (value) => {
-            response["count"] = value;
+        response["count"] = qcount(table, whereArr, whereLikeArr).then(
+          (count) => {
+            response["count"] = count;
             resolve(response);
           }
         );
@@ -96,14 +151,16 @@ function list(
   });
 }
 
-function count(table, where_arr = [], where_like_arr = []) {
+function qcount(table, filter) {
   return new Promise((resolve) => {
-    const where_data = where(where_arr, where_like_arr);
-    const statement =
-      "SELECT count(*) AS number FROM ?? " + where_data["query"] + ";";
+    const whereData = where(filter);
+    if (whereData == null) {
+      resolve({ message: WHERE_INVALID });
+    }
+    const statement = `SELECT count(*) AS number FROM ?? ${whereData["query"]};`;
     pool.query(
       statement,
-      [table, ...where_data["value"]],
+      [table, ...whereData["value"]],
       function (error, results) {
         if (error || results === "undefined") {
           resolve(0);
@@ -115,142 +172,247 @@ function count(table, where_arr = [], where_like_arr = []) {
   });
 }
 
-function remove(table, where_arr = [], where_like_arr = []) {
+function remove(table, filter) {
   return new Promise((resolve) => {
-    const where_data = where(where_arr, where_like_arr);
-    if (where_data.value.length < 1)
+    const whereData = where(filter);
+    if (whereData == null) {
+      resolve({ message: WHERE_INVALID });
+    }
+    if (whereData.value.length < 1) {
       resolve({ status: "unable to remove as there is not filter attributes" });
-    else {
-      const statement = "DELETE FROM ?? " + where_data["query"] + ";";
-      pool.query(
-        statement,
-        [table, ...where_data["value"]],
-        function (error, results, fields) {
-          if (error) {
-            resolve({ message: error.sqlMessage });
-          }
-          resolve({ status: "removed" });
+    } else {
+      const statement = `DELETE FROM ?? ${whereData["query"]};`;
+      pool.query(statement, [table, ...whereData["value"]], function (error) {
+        if (error) {
+          resolve({ message: error.sqlMessage });
         }
-      );
+        resolve({ status: "removed" });
+      });
     }
   });
 }
 
-function change(table, data, unique_keys = []) {
-  return new Promise((resolve) => {
-    var array = [];
-    var promise = [];
-    var counter = 0;
-    var total = 0;
+function change(table, data, uniqueKeys = []) {
+  return new Promise((resolve, reject) => {
+    let array = [];
+    const promise = [];
+    let count = 0;
+    let total = 0;
     if (!isset(data[0])) {
       array.push(data);
     } else {
       array = data;
     }
-    const [statement, insert_column, update_column] = get_change_parameter(
+    const [statement, insertColumn, updateColumn] = getChangeParameter(
       array[0],
-      unique_keys
+      uniqueKeys
     );
-    var value = [];
-    for (var i in array) {
-      var entry = [];
-      for (var j in insert_column) {
-        entry.push(array[i][insert_column[j]]);
-      }
-      value.push(entry);
-      counter++;
-      total++;
-      if (counter > 999) {
-        promise.push(
-          pool
-            .promise()
-            .query(
-              statement,
-              [table, ...insert_column, value, ...update_column],
-              function (error, results, fields) {
-                resolve(results);
-              }
-            )
-        );
-        value = [];
-        counter = 0;
+    let value = [];
+    for (const [i, v] of Object.entries(array)) {
+      if (array.hasOwnProperty(i)) {
+        const entry = [];
+        for (const col of insertColumn) {
+          entry.push(v[col]);
+        }
+        value.push(entry);
+        count++;
+        total++;
+        if (count > 999) {
+          promise.push(
+            pool
+              .promise()
+              .query(
+                statement,
+                [table, ...insertColumn, value, ...updateColumn],
+                function (_error, results) {
+                  if (error) {
+                    reject(error);
+                  }
+                  resolve(results);
+                }
+              )
+          );
+          value = [];
+          count = 0;
+        }
       }
     }
-    if (counter > 0) {
+    if (count > 0) {
       promise.push(
         pool
           .promise()
           .query(
             statement,
-            [table, ...insert_column, value, ...update_column],
-            function (error, results, fields) {
+            [table, ...insertColumn, value, ...updateColumn],
+            function (error, results) {
+              if (error) {
+                reject(error);
+              }
               resolve(results);
             }
           )
       );
     }
-    var response = {};
-    response.rows = total;
+
+    const response = {
+      rows: total,
+      message:
+        (total === 1
+          ? `1 ${namify(table)} is `
+          : `${total} ${namify(table)}s are `) + "saved",
+      type: "success",
+    };
     Promise.all(promise)
       .then((results) => {
-        if (total === 1) {
-          response["id"] = results[0][0].insertId;
+        try {
+          if (total === 1) {
+            response["id"] = results[0][0].insertId;
+          }
+          resolve(response);
+        } catch (err) {
+          reject(err);
         }
+      })
+      .catch((error) => {
+        console.log(error);
+        reject({ message: error.sqlMessage, type: "danger" });
+      });
+  });
+}
+function insert(table, data, uniqueKeys = []) {
+  return new Promise((resolve) => {
+    let array = [];
+    const promise = [];
+    let count = 0;
+    let total = 0;
+    if (!isset(data[0])) {
+      array.push(data);
+    } else {
+      array = data;
+    }
+    const [statement, insertColumn, updateColumn] = getChangeParameter(
+      array[0],
+      uniqueKeys
+    );
+    let value = [];
+    for (const [i, v] of Object.entries(array)) {
+      if (array.hasOwnProperty(i)) {
+        const entry = [];
+        for (const col of insertColumn) {
+          entry.push(v[col]);
+        }
+        value.push(entry);
+        count++;
+        total++;
+        if (count > 999) {
+          promise.push(
+            pool
+              .promise()
+              .query(
+                statement,
+                [table, ...insertColumn, value, ...updateColumn],
+                function (_error, results) {
+                  resolve(results);
+                }
+              )
+          );
+          value = [];
+          count = 0;
+        }
+      }
+    }
+    if (count > 0) {
+      promise.push(
+        pool
+          .promise()
+          .query(
+            statement,
+            [table, ...insertColumn, value, ...updateColumn],
+            function (_error, results) {
+              resolve(results);
+            }
+          )
+      );
+    }
+
+    const response = {
+      rows: total,
+      message:
+        (total === 1
+          ? `1 ${namify(table)} is `
+          : `${total} ${namify(table)}s are `) + "saved",
+      type: "success",
+    };
+    Promise.all(promise)
+      .then((results) => {
+        try {
+          if (total === 1) {
+            response["id"] = results[0][0].insertId;
+          }
+        } catch (err) {}
         resolve(response);
       })
       .catch((error) => {
-        resolve({ message: error.sqlMessage });
+        resolve({ message: error.sqlMessage, type: "danger" });
       });
   });
 }
 
-function get_change_parameter(row, unique_keys) {
-  var query_start = "INSERT INTO ?? ";
-  var insert_column = Object.keys(row);
-  var update_column = [];
-  query_start += insert_param(insert_column.length);
-  var query_end = " ON DUPLICATE KEY UPDATE ";
-  for (var i in insert_column) {
-    if (!unique_keys.includes(insert_column[i])) {
-      if (query_end != " ON DUPLICATE KEY UPDATE ") {
-        query_end += ",";
+function getChangeParameter(row, uniqueKeys) {
+  const insertColumn = Object.keys(row);
+  const updateColumn = [];
+  const queryStart = "INSERT INTO ?? " + insertParam(insertColumn.length);
+  let queryEnd = " ON DUPLICATE KEY UPDATE ";
+  for (const column of insertColumn) {
+    if (!uniqueKeys.includes(column)) {
+      if (queryEnd !== " ON DUPLICATE KEY UPDATE ") {
+        queryEnd += ",";
       }
-      query_end += "??=VALUES(??)";
-      update_column.push(insert_column[i]);
-      update_column.push(insert_column[i]);
+      queryEnd += "??=VALUES(??)";
+      updateColumn.push(column);
+      updateColumn.push(column);
     }
   }
-  query_end += ";";
-  return [query_start + " VALUES ? " + query_end, insert_column, update_column];
+  queryEnd += ";";
+  return [`${queryStart} VALUES ? ${queryEnd}`, insertColumn, updateColumn];
 }
-
-function insert_param(number) {
-  var str = "";
-  for (var i = 0; i < number; i++) {
-    if (i == 0) str = "??";
-    else str = str + ",??";
+function insertParam(number) {
+  let str = "";
+  for (let i = 0; i < number; i++) {
+    if (i === 0) {
+      str = "??";
+    } else {
+      str = str + ",??";
+    }
   }
-  return "(" + str + ")";
+  return `(${str})`;
 }
-function array_param(number) {
-  var str = "";
-  for (var i = 0; i < number; i++) {
-    if (i == 0) str = "?";
-    else str = str + ",?";
+function arrayParam(number) {
+  let str = "";
+  for (let i = 0; i < number; i++) {
+    if (i === 0) {
+      str = "?";
+    } else {
+      str = str + ",?";
+    }
   }
-  return "(" + str + ")";
+  return `(${str})`;
 }
 function isset(obj) {
   return typeof obj !== "undefined";
 }
-
+function namify(text) {
+  return text
+    .replace("_", " ")
+    .replace(/(^\w{1})|(\s+\w{1})/g, (letter) => letter.toUpperCase());
+}
 module.exports = {
   connect,
   get,
   list,
   where,
   query,
-  count,
+  qcount,
   remove,
   change,
   pool,

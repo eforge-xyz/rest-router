@@ -18,7 +18,7 @@ app.use("/test", route("test", {}, ["test_id"]));
 
 ## Usage
 
-app.use(endpoint,route(table_name - name of the table ,overrides - object of multiple json key value pair ,unique_keys - array od string))
+app.use(endpoint,route(table_name - name of the table ,overrides - object of multiple json key value pair ,unique_keys - array of string))
 
 Will create 3 endpoints
 
@@ -36,3 +36,17 @@ jsonbody ->
 
 jsonbody ->
 {"where":{"test_id":[1,2,3]},where_like:{},"limit":30,"offset":0}
+
+GET /resources/:id
+POST /resources/add (Insert)
+PUT /resources/:id (Update)
+DELETE /resources/:id (Delete)
+
+GET /resources
+[where {},page 0,limit 30]
+POST /resources (Insert)
+[{},{}]
+PUT /resources (Update)
+[{},{}]
+DELETE /resources (Delete)
+[{},{}]

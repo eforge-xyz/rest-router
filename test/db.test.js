@@ -93,7 +93,7 @@ describe("Database Functions", function () {
     });
     it("Get Entries with non existant data", function (done) {
       db.get(table, { test_name: name + "salt" }).then((data) => {
-        assert.ok(data[table].length == 0);
+        assert.ok(data[table].length === 0);
         done();
       });
     });
@@ -101,7 +101,7 @@ describe("Database Functions", function () {
 
   describe("Bulk Entry", function () {
     let number = 1000000;
-    it("Add a lot of Entries", function (done) {
+    it("Add a lot of Entries (1M)", function (done) {
       this.timeout(30000);
       let input = [];
       for (let i = 0; i < number; i++) {
@@ -171,7 +171,7 @@ describe("Database Functions", function () {
     });
     it("List with incorrect data", function (done) {
       db.list(table, {}, [{ test_name: "Mr" }], 1).then((data) => {
-        assert.ok(data.message == "Unknown column '0' in 'where clause'");
+        assert.ok(data.message == "Invalid where condition");
         done();
       });
     });
@@ -182,6 +182,7 @@ describe("Database Functions", function () {
       });
     });
     it("Remove all entries", function (done) {
+      this.timeout(30000);
       db.remove(table, {}, { test_id: "%" }).then((data) => {
         assert.ok(data.status == "removed");
         db.get(table).then((data) => {
