@@ -29,13 +29,20 @@ db.connect({
   "/test/user",
   authenticate({ role: ["admin", "manager"], offering: "test" }),
   route("test", [], "test_id", "test_name", [])
-);*/
-app.use("/test", require("./routes/customtest.js"));
+);
+app.use("/test", require("./routes/customtest.js"));*/
 app.use(
   "/test",
-  route("test", ["test_name"], "test_id", "test_name", [], {
-    session: ["user"]["user_id"],
-  })
+  route(
+    "test",
+    ["name", "description", "type", "info"],
+    "test_id",
+    "name",
+    [],
+    {
+      session: ["user"]["user_id"],
+    }
+  )
 );
 
 app.listen(port, () => {

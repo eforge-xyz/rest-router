@@ -2,6 +2,7 @@ const express = require("express");
 const { Validator } = require("node-input-validator");
 const ARRAY_REQUIRED = "required|array";
 const STRING_REQUIRED = "required|string";
+const { jsonSafeParse, stringify } = require("./function");
 db = require("./db.js");
 function route(
   model,
@@ -14,8 +15,9 @@ function route(
   /* 
   1) Override -> structure {body:[],params:[],header:[],session:[],set:[{key:value}]}
   TODO:
-  4) Bulk Validate unique should not be present in the data of post request (User Insert instead of Change)
-    */
+  1) Bulk Validate unique should not be present in the data of post request (User Insert instead of Change)
+  2) Use Filter object for creating where condition instead of whereEq and WhereLike
+  */
   const modelNotFound = `${
     model.charAt(0).toUpperCase() + model.slice(1)
   } not found`;
@@ -25,14 +27,16 @@ function route(
   return express
     .Router()
     .get("/:" + modelPk, (req, res) => {
-      let filter = [];
-      if (req.params.hasOwnProperty("filter")) {
-        filter = req.params.filter;
+      let filter = [[]];
+      if (req.query.hasOwnProperty("filter")) {
+        filter = jsonSafeParse(req.query.filter);
+        for (const i in filter) {
+          filter[i] = filter[i];
+          filter[i].push([modelPk, "=", req.params[modelPk]]);
+        }
+      } else {
+        filter[0].push([modelPk, "=", req.params[modelPk]]);
       }
-      filter.push([modelPk, "=", req.params[modelPk]]);
-
-      //payload = payloadOverride(payload, req, override);
-      //payload[modelPk] = req.params[modelPk];
       db.get(model, filter).then((data) => {
         if (data.count === 1) {
           res.send(data[model][0]);
@@ -62,9 +66,7 @@ function route(
           type: "error",
         });
       } else {
-        //db.get(model, []).then((result) => {
-        //console.log(result);
-        //if (result.count === 0) {
+        req.body = stringify(req.body);
         validateInput(
           req,
           getPayloadValidator("CREATE", modelStructure, modelPk)
@@ -97,6 +99,7 @@ function route(
       payload[modelPk] = req.params[modelPk];
       db.get(model, payload).then((result) => {
         req.body[modelPk] = req.params[modelPk];
+        req.body = stringify(req.body);
         if (result.count === 1) {
           req.body = payloadOverride(req.body, req, override);
           req.body = RemoveUnknownData(
@@ -112,11 +115,19 @@ function route(
       });
     })
     .delete("/:" + modelPk, (req, res) => {
-      const payload = {};
-      payload[modelPk] = req.params[modelPk];
-      db.get(model, payload).then((data) => {
+      let filter = [[]];
+      if (req.query.hasOwnProperty("filter")) {
+        filter = jsonSafeParse(req.query.filter);
+        for (const i in filter) {
+          filter[i] = filter[i];
+          filter[i].push([modelPk, "=", req.params[modelPk]]);
+        }
+      } else {
+        filter[0].push([modelPk, "=", req.params[modelPk]]);
+      }
+      db.get(model, filter).then((data) => {
         if (data.count === 1) {
-          db.remove(model, payload).then((result) => {
+          db.remove(model, filter).then((result) => {
             res.send(result);
           });
         } else {
@@ -125,48 +136,41 @@ function route(
       });
     })
     .get("/", (req, res) => {
-      //List API (Supports = condition only)
-      //search,page,limit + filter based on params values in url + extra params after url
-      /*
-      To support <,>,=,~(like)
-      filter=[{column,condition,value},...]
-      filter=[[column,condition,value],...]
-      test_name=Test Name&date<2021-01-01*/
       const search = req.params.search || "";
       const page = req.params.page || 0;
       const limit = req.params.limit || 30;
-      let where = {};
-      for (const [key, value] of Object.entries(req.params)) {
-        if (!["search", "page", "limit", "filter"].includes(key)) {
-          where[key] = value;
+      let filter = [[]];
+      if (req.query.hasOwnProperty("filter")) {
+        filter = jsonSafeParse(req.query.filter);
+        for (const i in filter) {
+          filter[i] = filter[i];
+          filter[i].push([modelSearch, "like", search]);
         }
+      } else {
+        filter[0].push([modelSearch, "like", search]);
       }
-      where = payloadOverride(where, req, override);
-      const payload = {};
-      payload[modelSearch] = search;
-      db.list(model, where, payload, page, limit).then((data) => {
+      db.list(model, filter, page, limit).then((data) => {
         res.send(data);
       });
     })
     .post("/", (req, res) => {
       //Add API
+      if (req.body.hasOwnProperty("data") && Array.isArray(req.body.data)) {
+        req.body.data = stringify(req.body.data);
+      }
       validateInput(
         req,
         getPayloadValidatorBulk("CREATE", model, modelStructure, modelPk)
       ).then((valid) => {
         if (valid === true) {
-          req.body[model + "s"] = payloadOverride(
-            req.body[model + "s"],
-            req,
-            override
-          );
+          req.body["data"] = payloadOverride(req.body["data"], req, override);
           //Array should not contain modelPk
-          //RemovePK(modelPk, req.body[model + "s"]);
-          req.body[model + "s"] = RemoveUnknownData(
+          //RemovePK(modelPk, req.body["data"]);
+          req.body["data"] = RemoveUnknownData(
             modelStructure,
-            req.body[model + "s"]
+            req.body["data"]
           );
-          db.change(model, req.body[model + "s"], [modelPk]).then((result) => {
+          db.change(model, req.body["data"], [modelPk]).then((result) => {
             res.send(result);
           });
         } else {
@@ -176,21 +180,20 @@ function route(
     })
     .put("/", (req, res) => {
       //Update API
+      if (req.body.hasOwnProperty("data") && Array.isArray(req.body.data)) {
+        req.body.data = stringify(req.body.data);
+      }
       validateInput(
         req,
         getPayloadValidatorBulk("UPDATE", model, modelStructure, modelPk)
       ).then((valid) => {
         if (valid === true) {
-          req.body[model + "s"] = payloadOverride(
-            req.body[model + "s"],
-            req,
-            override
-          );
-          req.body[model + "s"] = RemoveUnknownData(
+          req.body["data"] = payloadOverride(req.body["data"], req, override);
+          req.body["data"] = RemoveUnknownData(
             [modelPk, ...modelStructure],
-            req.body[model + "s"]
+            req.body["data"]
           );
-          db.change(model, req.body[model + "s"]).then((result) => {
+          db.change(model, req.body["data"]).then((result) => {
             res.send(result);
           });
         } else {
@@ -199,12 +202,9 @@ function route(
       });
     })
     .delete("/", (req, res) => {
-      validateInput(
-        req,
-        getPayloadValidatorBulk("DELETE", model, modelStructure, modelPk)
-      ).then((valid) => {
+      validateInput(req, { body: { filter: ARRAY_REQUIRED } }).then((valid) => {
         if (valid === true) {
-          db.remove(model, req.body).then((result) => {
+          db.remove(model, req.body.filter).then((result) => {
             res.send(result);
           });
         } else {
@@ -274,13 +274,13 @@ function getPayloadValidatorBulk(type, model, structure, pk) {
   const body = {};
   switch (type) {
     case "CREATE":
-      body[model + "s"] = ARRAY_REQUIRED;
+      body["data"] = ARRAY_REQUIRED;
       for (const i in structure) {
         body[`${model}s.*.${structure[i]}`] = STRING_REQUIRED;
       }
       break;
     case "UPDATE":
-      body[model + "s"] = ARRAY_REQUIRED;
+      body["data"] = ARRAY_REQUIRED;
       for (const i in structure) {
         body[`${model}s.*.${structure[i]}`] = STRING_REQUIRED;
       }

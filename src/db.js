@@ -1,4 +1,5 @@
 const mysql = require("mysql2");
+const { jsonSafeParse } = require("./function");
 let pool = null;
 const WHERE_INVALID = "Invalid where condition";
 
@@ -43,10 +44,10 @@ function where(filter) {
     let conditionAnd = [];
     for (const j of i) {
       if (!valid_conditionals.includes(j[1])) {
-        return false;
+        return null;
       }
       if (j[1] === "in" && !Array.isArray(j[2])) {
-        return false;
+        return null;
       }
       if (j[1] === "in") {
         conditionAnd.push("?? in (" + arrayParam(j[2].length) + ")");
@@ -101,7 +102,7 @@ function get(table, filter = []) {
   const response = {};
   return new Promise((resolve) => {
     const whereData = where(filter);
-    if (whereData == null) {
+    if (whereData === null) {
       resolve({ message: WHERE_INVALID });
     }
     const statement = `SELECT * FROM ?? ${whereData["query"]};`;
@@ -113,12 +114,10 @@ function get(table, filter = []) {
           resolve({ message: error.sqlMessage });
         }
         response[table] = results;
-        response["count"] = qcount(table, whereArr, whereLikeArr).then(
-          (count) => {
-            response["count"] = count;
-            resolve(response);
-          }
-        );
+        response["count"] = qcount(table, filter).then((count) => {
+          response["count"] = count;
+          resolve(response);
+        });
       }
     );
   });
@@ -139,13 +138,11 @@ function list(table, filter = [], page = 0, limit = 30) {
         if (error) {
           resolve({ message: error.sqlMessage });
         }
-        response[table] = results;
-        response["count"] = qcount(table, whereArr, whereLikeArr).then(
-          (count) => {
-            response["count"] = count;
-            resolve(response);
-          }
-        );
+        response["data"] = jsonSafeParse(results);
+        response["count"] = qcount(table, filter).then((count) => {
+          response["count"] = count;
+          resolve(response);
+        });
       }
     );
   });
