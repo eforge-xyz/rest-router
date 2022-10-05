@@ -1,7 +1,7 @@
 const mysql = require("mysql2");
 const { jsonSafeParse } = require("./function");
 let pool = null;
-const WHERE_INVALID = "Invalid where condition";
+const WHERE_INVALID = "Invalid filter object";
 
 function connect(credentails) {
   pool = mysql.createPool(credentails);
@@ -32,10 +32,8 @@ function where(filter) {
       };
     }
   } catch (err) {
-    return {
-      query: "",
-      value: [],
-    };
+    //console.log(err);
+    return null;
   }
   const valid_conditionals = ["=", "like", "in", "<", ">", "<=", ">=", "!="];
   let conditionOr = [];
@@ -50,7 +48,7 @@ function where(filter) {
         return null;
       }
       if (j[1] === "in") {
-        conditionAnd.push("?? in (" + arrayParam(j[2].length) + ")");
+        conditionAnd.push("?? in " + arrayParam(j[2].length) + "");
         value.push(j[0], ...j[2]);
       } else if (j[1] === "like") {
         conditionAnd.push("?? like ?");
@@ -63,6 +61,7 @@ function where(filter) {
     conditionOr.push(conditionAnd.join(" AND "));
   }
   let query = "WHERE ((" + conditionOr.join(") OR (") + "))";
+  //console.log(filter, query, value);
   return {
     query,
     value,
@@ -113,7 +112,7 @@ function get(table, filter = []) {
         if (error) {
           resolve({ message: error.sqlMessage });
         }
-        response[table] = results;
+        response["data"] = jsonSafeParse(results);
         response["count"] = qcount(table, filter).then((count) => {
           response["count"] = count;
           resolve(response);

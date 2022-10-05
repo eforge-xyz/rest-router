@@ -1,12 +1,18 @@
 const express = require("express");
 const { Validator } = require("node-input-validator");
-const ARRAY_REQUIRED = "required|array";
-const STRING_REQUIRED = "required|string";
+const CONSTANTS = {
+  ARRAY: "required|array",
+  INTEGER: "required|integer",
+  STRING: "required|string",
+  NUMERIC: "required|numeric",
+  JSON: "required|object",
+  DATETIME: "required|datetime",
+};
 const { jsonSafeParse, stringify } = require("./function");
 db = require("./db.js");
 function route(
   model,
-  modelStructure = [],
+  modelStructure = {},
   modelPk = "",
   modelSearch = "",
   unique = [],
@@ -28,18 +34,22 @@ function route(
     .Router()
     .get("/:" + modelPk, (req, res) => {
       let filter = [[]];
-      if (req.query.hasOwnProperty("filter")) {
-        filter = jsonSafeParse(req.query.filter);
-        for (const i in filter) {
-          filter[i] = filter[i];
-          filter[i].push([modelPk, "=", req.params[modelPk]]);
+      try {
+        if (req.query.hasOwnProperty("filter")) {
+          filter = jsonSafeParse(req.query.filter);
+          for (const i in filter) {
+            filter[i] = filter[i];
+            filter[i].push([modelPk, "=", req.params[modelPk]]);
+          }
+        } else {
+          filter[0].push([modelPk, "=", req.params[modelPk]]);
         }
-      } else {
-        filter[0].push([modelPk, "=", req.params[modelPk]]);
+      } catch (err) {
+        res.status(422).send({ message: "Invalid filter", type: "danger" });
       }
       db.get(model, filter).then((data) => {
         if (data.count === 1) {
-          res.send(data[model][0]);
+          res.send(data["data"][0]);
         } else {
           res.status(404).send({ message: modelNotFound, type: "error" });
         }
@@ -66,17 +76,14 @@ function route(
           type: "error",
         });
       } else {
-        req.body = stringify(req.body);
         validateInput(
           req,
           getPayloadValidator("CREATE", modelStructure, modelPk)
         ).then((valid) => {
+          req.body = stringify(req.body);
           if (valid === true) {
             req.body = payloadOverride(req.body, req, override);
-            req.body = RemoveUnknownData(
-              [modelPk, ...modelStructure],
-              [req.body]
-            );
+            req.body = RemoveUnknownData(modelStructure, [req.body]);
             db.change(model, req.body)
               .then((data) => {
                 res.send(data);
@@ -95,35 +102,43 @@ function route(
       }
     })
     .put("/:" + modelPk, (req, res) => {
-      const payload = {};
-      payload[modelPk] = req.params[modelPk];
-      db.get(model, payload).then((result) => {
+      db.get(model, [[[modelPk, "=", req.params[modelPk]]]]).then((result) => {
         req.body[modelPk] = req.params[modelPk];
-        req.body = stringify(req.body);
-        if (result.count === 1) {
-          req.body = payloadOverride(req.body, req, override);
-          req.body = RemoveUnknownData(
-            [modelPk, ...modelStructure],
-            [req.body]
-          );
-          db.change(model, req.body).then((data) => {
-            res.send(data);
-          });
-        } else {
-          res.status(404).send({ message: modelNotFound, type: "error" });
-        }
+        validateInput(
+          req,
+          getPayloadValidator("UPDATE", modelStructure, modelPk)
+        ).then((valid) => {
+          if (valid) {
+            req.body = stringify(req.body);
+            if (result.count === 1) {
+              req.body = payloadOverride(req.body, req, override);
+              req.body = RemoveUnknownData(modelStructure, [req.body]);
+              db.change(model, req.body).then((data) => {
+                res.send(data);
+              });
+            } else {
+              res.status(404).send({ message: modelNotFound, type: "error" });
+            }
+          } else {
+            res.status(422).send(valid);
+          }
+        });
       });
     })
     .delete("/:" + modelPk, (req, res) => {
       let filter = [[]];
-      if (req.query.hasOwnProperty("filter")) {
-        filter = jsonSafeParse(req.query.filter);
-        for (const i in filter) {
-          filter[i] = filter[i];
-          filter[i].push([modelPk, "=", req.params[modelPk]]);
+      try {
+        if (req.query.hasOwnProperty("filter")) {
+          filter = jsonSafeParse(req.query.filter);
+          for (const i in filter) {
+            filter[i] = filter[i];
+            filter[i].push([modelPk, "=", req.params[modelPk]]);
+          }
+        } else {
+          filter[0].push([modelPk, "=", req.params[modelPk]]);
         }
-      } else {
-        filter[0].push([modelPk, "=", req.params[modelPk]]);
+      } catch (err) {
+        res.status(422).send({ message: "Invalid filter", type: "danger" });
       }
       db.get(model, filter).then((data) => {
         if (data.count === 1) {
@@ -140,14 +155,18 @@ function route(
       const page = req.params.page || 0;
       const limit = req.params.limit || 30;
       let filter = [[]];
-      if (req.query.hasOwnProperty("filter")) {
-        filter = jsonSafeParse(req.query.filter);
-        for (const i in filter) {
-          filter[i] = filter[i];
-          filter[i].push([modelSearch, "like", search]);
+      try {
+        if (req.query.hasOwnProperty("filter")) {
+          filter = jsonSafeParse(req.query.filter);
+          for (const i in filter) {
+            filter[i] = filter[i];
+            filter[i].push([modelSearch, "like", search]);
+          }
+        } else {
+          filter[0].push([modelSearch, "like", search]);
         }
-      } else {
-        filter[0].push([modelSearch, "like", search]);
+      } catch (err) {
+        res.status(422).send({ message: "Invalid filter", type: "danger" });
       }
       db.list(model, filter, page, limit).then((data) => {
         res.send(data);
@@ -155,14 +174,14 @@ function route(
     })
     .post("/", (req, res) => {
       //Add API
-      if (req.body.hasOwnProperty("data") && Array.isArray(req.body.data)) {
-        req.body.data = stringify(req.body.data);
-      }
       validateInput(
         req,
         getPayloadValidatorBulk("CREATE", model, modelStructure, modelPk)
       ).then((valid) => {
         if (valid === true) {
+          if (req.body.hasOwnProperty("data") && Array.isArray(req.body.data)) {
+            req.body.data = stringify(req.body.data);
+          }
           req.body["data"] = payloadOverride(req.body["data"], req, override);
           //Array should not contain modelPk
           //RemovePK(modelPk, req.body["data"]);
@@ -180,17 +199,17 @@ function route(
     })
     .put("/", (req, res) => {
       //Update API
-      if (req.body.hasOwnProperty("data") && Array.isArray(req.body.data)) {
-        req.body.data = stringify(req.body.data);
-      }
       validateInput(
         req,
         getPayloadValidatorBulk("UPDATE", model, modelStructure, modelPk)
       ).then((valid) => {
         if (valid === true) {
+          if (req.body.hasOwnProperty("data") && Array.isArray(req.body.data)) {
+            req.body.data = stringify(req.body.data);
+          }
           req.body["data"] = payloadOverride(req.body["data"], req, override);
           req.body["data"] = RemoveUnknownData(
-            [modelPk, ...modelStructure],
+            modelStructure,
             req.body["data"]
           );
           db.change(model, req.body["data"]).then((result) => {
@@ -202,7 +221,10 @@ function route(
       });
     })
     .delete("/", (req, res) => {
-      validateInput(req, { body: { filter: ARRAY_REQUIRED } }).then((valid) => {
+      validateInput(
+        req,
+        getPayloadValidatorBulk("DELETE", model, modelStructure, modelPk)
+      ).then((valid) => {
         if (valid === true) {
           db.remove(model, req.body.filter).then((result) => {
             res.send(result);
@@ -274,21 +296,19 @@ function getPayloadValidatorBulk(type, model, structure, pk) {
   const body = {};
   switch (type) {
     case "CREATE":
-      body["data"] = ARRAY_REQUIRED;
+      body["data"] = CONSTANTS["ARRAY"];
       for (const i in structure) {
-        body[`${model}s.*.${structure[i]}`] = STRING_REQUIRED;
+        if (i !== pk) body[`data.*.${i}`] = CONSTANTS[structure[i]];
       }
       break;
     case "UPDATE":
-      body["data"] = ARRAY_REQUIRED;
+      body["data"] = CONSTANTS["ARRAY"];
       for (const i in structure) {
-        body[`${model}s.*.${structure[i]}`] = STRING_REQUIRED;
+        body[`data.*.${i}`] = CONSTANTS[structure[i]];
       }
-      body[`${model}s.*.${pk}`] = STRING_REQUIRED;
       break;
     case "DELETE":
-      body[pk] = ARRAY_REQUIRED;
-      body[`${pk}.*`] = STRING_REQUIRED;
+      body["filter"] = CONSTANTS["ARRAY"];
       break;
     default:
       break;
@@ -296,26 +316,26 @@ function getPayloadValidatorBulk(type, model, structure, pk) {
   return { body };
 }
 function getPayloadValidator(type, structure, pk) {
-  const body = {};
+  const validator = { body: {} };
   switch (type) {
     case "CREATE":
       for (const i in structure) {
-        body[structure[i]] = STRING_REQUIRED;
+        if (i !== pk) validator.body[i] = CONSTANTS[structure[i]];
       }
       break;
     case "UPDATE":
       for (const i in structure) {
-        body[structure[i]] = STRING_REQUIRED;
+        validator.body[i] = CONSTANTS[structure[i]];
       }
-      body[pk] = STRING_REQUIRED;
       break;
     case "DELETE":
-      body[pk] = STRING_REQUIRED;
+      validator.params = {};
+      validator.params[pk] = CONSTANTS[structure[pk]];
       break;
     default:
       break;
   }
-  return { body };
+  return validator;
 }
 function RemovePK(modelPK, data) {
   for (const item of data) {
@@ -325,9 +345,10 @@ function RemovePK(modelPK, data) {
   }
 }
 function RemoveUnknownData(ModelStructure, data) {
+  const modelStructure = Object.keys(ModelStructure);
   for (const item of data) {
     for (const i in item) {
-      if (!ModelStructure.includes(i)) {
+      if (!modelStructure.includes(i)) {
         delete item[i];
       }
     }

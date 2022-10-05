@@ -1,7 +1,13 @@
 require("dotenv").config();
 const express = require("express");
 const app = express();
-app.use(express.json({ limit: "128mb" }));
+const bodyParser = require("body-parser");
+app.use(bodyParser.json({ limit: "128mb" }));
+app.use(
+  bodyParser.urlencoded({
+    extended: true,
+  })
+);
 app.use((err, req, res, next) => {
   if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
     return res.status(400).send(err); // Bad request
@@ -35,7 +41,13 @@ app.use(
   "/test",
   route(
     "test",
-    ["name", "description", "type", "info"],
+    {
+      test_id: "INTEGER",
+      name: "STRING",
+      description: "STRING",
+      type: "INTEGER",
+      info: "JSON",
+    },
     "test_id",
     "name",
     [],
@@ -72,4 +84,4 @@ function authenticate(param) {
     }
   };
 }
-module.exports = { app };
+module.exports = app;

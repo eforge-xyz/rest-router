@@ -25,6 +25,7 @@
   },
   "homepage": "https://github.com/AvinashSKaranth/mysql2-express-crud#readme",
   "dependencies": {
+    "body-parser": "^1.20.0",
     "dotenv": "^10.0.0",
     "express": "^4.17.2",
     "mysql2": "^2.3.3",

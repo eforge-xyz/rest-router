@@ -1,47 +1,93 @@
 process.env.NODE_ENV = "TEST";
-process.env.TEST_PORT = 30001;
+process.env.TEST_PORT = 3001;
 let crypto = require("crypto");
 let table = "test-" + crypto.randomUUID();
 const request = require("supertest");
-var assert = require("assert");
-var faker = require("faker");
-const { app } = require("./../src/serve.js");
+const assert = require("assert");
+const faker = require("faker");
+const app = require("./../src/serve.js");
+let id = 0;
 const { db } = require("../src/index.js");
 describe("Rest APIs", function () {
-  /*before(function (done) {
-    db.query(
-      "CREATE TABLE IF NOT EXISTS`" +
-        table +
-        "` (" +
-        "`test_id` int(11) NOT NULL AUTO_INCREMENT," +
-        "`test_name` varchar(63) NOT NULL DEFAULT ''," +
-        "`created_at` datetime NOT NULL DEFAULT current_timestamp()," +
-        "`modified_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()," +
-        "PRIMARY KEY (`test_id`)" +
-        ") ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8mb4"
-    ).then((data) => {
-      done();
-    });
-  });
-  after(function (done) {
-    db.query("DROP TABLE `" + table + "`;").then(() => {
-      done();
-
-    });
-  });*/
   describe("Single Entry", function () {
-    //let name = faker.name.findName();
+    let name = faker.name.findName();
     it("post an entry", function (done) {
+      try {
+        request(app)
+          .post("/test/add")
+          .expect("Content-Type", /json/)
+          .send({
+            name,
+            type: "1",
+            description: "Sample Data",
+            info: { column: 123 },
+            unknown: "123",
+          })
+          .expect(200)
+          .expect((res) => {
+            id = res.body.id;
+            assert(id > 0);
+            assert(res.body.rows === 1);
+          })
+          .end((err, res) => {
+            if (err) return done(err);
+            return done();
+          });
+      } catch (err) {
+        console.log(err);
+      }
+    });
+    it("get an entry", function (done) {
       request(app)
-        .post("/test/add")
-        .send({ test_name: "Test Name Value" })
-        .set("Accept", "application/json")
+        .get("/test/" + id)
         .expect("Content-Type", /json/)
+        .expect(200)
         .expect((res) => {
-          console.log(res.text);
-          //t.equal(res.text, "Ok");
+          assert(res.body.test_id === id);
+          assert(res.body.name === name);
         })
-        .expect(200, done);
+        .end((err, res) => {
+          if (err) return done(err);
+          return done();
+        });
+    });
+    it("update an entry", function (done) {
+      request(app)
+        .put("/test/" + id)
+        .send({
+          name: name + " Updated",
+          type: "1",
+          description: "Sample Data Updated",
+          info: { column: "abc" },
+        })
+        .expect("Content-Type", /json/)
+        .expect(200)
+        .expect((res) => {
+          db.get("test", [[["test_id", "=", id]]]).then((result) => {
+            assert(result["data"][0]["name"] === name + " Updated");
+            assert(result["data"][0]["description"] === "Sample Data Updated");
+          });
+        })
+        .end((err, res) => {
+          if (err) return done(err);
+          return done();
+        });
+    });
+    it("delete an entry", function (done) {
+      request(app)
+        .delete("/test/" + id)
+        .expect("Content-Type", /json/)
+        .expect(200)
+        .expect((res) => {
+          assert(res.body.status === "removed");
+          db.get("test", [[["test_id", "=", id]]]).then((result) => {
+            assert(result["data"].length === 0);
+          });
+        })
+        .end((err, res) => {
+          if (err) return done(err);
+          return done();
+        });
     });
   });
 });
