@@ -216,7 +216,6 @@ describe("Database Functions", function () {
           assert.ok(data.count == 0);
           done();
         });
-        done();
       });
     });
   });

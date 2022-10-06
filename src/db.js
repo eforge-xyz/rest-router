@@ -8,7 +8,7 @@ function connect(credentails) {
   return pool;
 }
 function query(sql, parameter = []) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     pool.query(sql, parameter, function (error, results) {
       if (error) {
         reject(error);
