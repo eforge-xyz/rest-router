@@ -79,7 +79,7 @@ describe("Rest APIs", function () {
         .expect("Content-Type", /json/)
         .expect(200)
         .expect((res) => {
-          assert(res.body.status === "removed");
+          //assert(res.body.status === "removed");
           db.get("test", [[["test_id", "=", id]]]).then((result) => {
             assert(result["data"].length === 0);
           });
