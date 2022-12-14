@@ -1,4 +1,4 @@
-process.env.NODE_ENV = "TEST";
+/*process.env.NODE_ENV = "TEST";
 process.env.TEST_PORT = 3001;
 let crypto = require("crypto");
 let table = "test-" + crypto.randomUUID();
@@ -91,3 +91,4 @@ describe("Rest APIs", function () {
     });
   });
 });
+*/

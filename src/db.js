@@ -195,7 +195,7 @@ function remove(table, filter) {
   });
 }
 
-function change(table, data, uniqueKeys = []) {
+function upsert(table, data, uniqueKeys = []) {
   return new Promise((resolve, reject) => {
     let array = [];
     const promise = [];
@@ -281,7 +281,156 @@ function change(table, data, uniqueKeys = []) {
       });
   });
 }
-function insert(table, data, uniqueKeys = []) {
+
+function getChangeParameter(row, uniqueKeys, onDuplicate = true) {
+  const insertColumn = Object.keys(row);
+  const updateColumn = [];
+  const queryStart = "INSERT INTO ?? " + insertParam(insertColumn.length);
+  let queryEnd = "";
+  if (onDuplicate) {
+    queryEnd = " ON DUPLICATE KEY UPDATE ";
+    for (const column of insertColumn) {
+      if (!uniqueKeys.includes(column)) {
+        if (queryEnd !== " ON DUPLICATE KEY UPDATE ") {
+          queryEnd += ",";
+        }
+        queryEnd += "??=DATA.??";
+        updateColumn.push(column);
+        updateColumn.push(column);
+      }
+    }
+  }
+  queryEnd += ";";
+  return [
+    `${queryStart} VALUES ? AS DATA ${queryEnd}`,
+    insertColumn,
+    updateColumn,
+  ];
+}
+function insertParam(number) {
+  let str = "";
+  for (let i = 0; i < number; i++) {
+    if (i === 0) {
+      str = "??";
+    } else {
+      str = str + ",??";
+    }
+  }
+  return `(${str})`;
+}
+function arrayParam(number) {
+  let str = "";
+  for (let i = 0; i < number; i++) {
+    if (i === 0) {
+      str = "?";
+    } else {
+      str = str + ",?";
+    }
+  }
+  return `(${str})`;
+}
+function isset(obj) {
+  return typeof obj !== "undefined";
+}
+function namify(text) {
+  return text
+    .replace("_", " ")
+    .replace(/(^\w{1})|(\s+\w{1})/g, (letter) => letter.toUpperCase());
+}
+module.exports = {
+  connect,
+  get,
+  list,
+  where,
+  query,
+  qcount,
+  remove,
+  upsert,
+  change: upsert,
+  pool,
+};
+
+/*function insert(table, data, uniqueKeys = []) {
+  return new Promise((resolve) => {
+    let array = [];
+    const promise = [];
+    let count = 0;
+    let total = 0;
+    if (!isset(data[0])) {
+      array.push(data);
+    } else {
+      array = data;
+    }
+    const [statement, insertColumn, updateColumn] = getChangeParameter(
+      array[0],
+      uniqueKeys,
+      false
+    );
+    let value = [];
+    for (const [i, v] of Object.entries(array)) {
+      if (array.hasOwnProperty(i)) {
+        const entry = [];
+        for (const col of insertColumn) {
+          entry.push(v[col]);
+        }
+        value.push(entry);
+        count++;
+        total++;
+        if (count > 999) {
+          promise.push(
+            pool
+              .promise()
+              .query(
+                statement,
+                [table, ...insertColumn, value, ...updateColumn],
+                function (_error, results) {
+                  resolve(results);
+                }
+              )
+          );
+          value = [];
+          count = 0;
+        }
+      }
+    }
+    if (count > 0) {
+      promise.push(
+        pool
+          .promise()
+          .query(
+            statement,
+            [table, ...insertColumn, value, ...updateColumn],
+            function (_error, results) {
+              resolve(results);
+            }
+          )
+      );
+    }
+
+    const response = {
+      rows: total,
+      message:
+        (total === 1
+          ? `1 ${namify(table)} is `
+          : `${total} ${namify(table)}s are `) + "saved",
+      type: "success",
+    };
+    Promise.all(promise)
+      .then((results) => {
+        try {
+          if (total === 1) {
+            response["id"] = results[0][0].insertId;
+          }
+        } catch (err) {}
+        resolve(response);
+      })
+      .catch((error) => {
+        resolve({ message: error.sqlMessage, type: "danger" });
+      });
+  });
+}
+
+function update(table, data, uniqueKeys = []) {
   return new Promise((resolve) => {
     let array = [];
     const promise = [];
@@ -358,64 +507,4 @@ function insert(table, data, uniqueKeys = []) {
         resolve({ message: error.sqlMessage, type: "danger" });
       });
   });
-}
-
-function getChangeParameter(row, uniqueKeys) {
-  const insertColumn = Object.keys(row);
-  const updateColumn = [];
-  const queryStart = "INSERT INTO ?? " + insertParam(insertColumn.length);
-  let queryEnd = " ON DUPLICATE KEY UPDATE ";
-  for (const column of insertColumn) {
-    if (!uniqueKeys.includes(column)) {
-      if (queryEnd !== " ON DUPLICATE KEY UPDATE ") {
-        queryEnd += ",";
-      }
-      queryEnd += "??=VALUES(??)";
-      updateColumn.push(column);
-      updateColumn.push(column);
-    }
-  }
-  queryEnd += ";";
-  return [`${queryStart} VALUES ? ${queryEnd}`, insertColumn, updateColumn];
-}
-function insertParam(number) {
-  let str = "";
-  for (let i = 0; i < number; i++) {
-    if (i === 0) {
-      str = "??";
-    } else {
-      str = str + ",??";
-    }
-  }
-  return `(${str})`;
-}
-function arrayParam(number) {
-  let str = "";
-  for (let i = 0; i < number; i++) {
-    if (i === 0) {
-      str = "?";
-    } else {
-      str = str + ",?";
-    }
-  }
-  return `(${str})`;
-}
-function isset(obj) {
-  return typeof obj !== "undefined";
-}
-function namify(text) {
-  return text
-    .replace("_", " ")
-    .replace(/(^\w{1})|(\s+\w{1})/g, (letter) => letter.toUpperCase());
-}
-module.exports = {
-  connect,
-  get,
-  list,
-  where,
-  query,
-  qcount,
-  remove,
-  change,
-  pool,
-};
+}*/

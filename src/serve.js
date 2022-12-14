@@ -36,10 +36,11 @@ db.connect({
   authenticate({ role: ["admin", "manager"], offering: "test" }),
   route("test", [], "test_id", "test_name", [])
 );
-app.use("/test", require("./routes/customtest.js"));*/
+app.use("/test", require("./module/test.js").route);*/
 app.use(
   "/test",
   route(
+    db,
     "test",
     {
       test_id: "INTEGER",
@@ -52,7 +53,10 @@ app.use(
     "name",
     [],
     {
-      session: ["user"]["user_id"],
+      override: {
+        user_id: ["req", "user", "user_id"],
+      },
+      safe_delete: true,
     }
   )
 );

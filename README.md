@@ -15,7 +15,16 @@ db.connect({
 });
 app.use("/test", route("test", {}, ["test_id"]));
 ```
+/*
+filter=[[["column_name",condition,value],["column_name",condition,value]],[["column_name",condition,value],["column_name",condition,value]]]
+conditions to support
+=,like,in,<,>,<=,>=,!=
 
+1st Array is OR
+2nd Array is AND
+3rd Array is Conditional
+
+*/
 ## Usage
 
 app.use(endpoint,route(table_name - name of the table ,overrides - object of multiple json key value pair ,unique_keys - array of string))
