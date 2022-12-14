@@ -15,7 +15,8 @@ db.connect({
 });
 app.use("/test", route("test", {}, ["test_id"]));
 ```
-/*
+
+/\*
 filter=[[["column_name",condition,value],["column_name",condition,value]],[["column_name",condition,value],["column_name",condition,value]]]
 conditions to support
 =,like,in,<,>,<=,>=,!=
@@ -24,7 +25,8 @@ conditions to support
 2nd Array is AND
 3rd Array is Conditional
 
-*/
+\*/
+
 ## Usage
 
 app.use(endpoint,route(table_name - name of the table ,overrides - object of multiple json key value pair ,unique_keys - array of string))
@@ -59,3 +61,45 @@ PUT /resources (Update)
 [{},{}]
 DELETE /resources (Delete)
 [{},{}]
+
+```
+/module/test.js
+const {route,model} = require("./index.js");
+const testModel = model(db,
+    "test",
+    {
+      test_id: "INTEGER",
+      name: "STRING",
+      description: "STRING",
+      type: "INTEGER",
+      info: "JSON",
+    },
+    "test_id",
+    "name",
+    [],
+    {
+      session: ["user"]["user_id"],
+    });
+    model["customFunction"] = async (a,b,c) =>{
+
+    };
+    const testRoute =route(db,
+        "test",
+        {
+          test_id: "INTEGER",
+          name: "STRING",
+          description: "STRING",
+          type: "INTEGER",
+          info: "JSON",
+        },
+        "test_id",
+        "name",
+        [],
+        {
+          session: ["user"]["user_id"],
+        });
+        testRoute.post("/",(req,res)=>{
+
+        })
+module.exports = {route:testRoute,model:testModel };
+```
