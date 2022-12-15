@@ -17,7 +17,7 @@ app.use("/test", route("test", {}, ["test_id"]));
 ```
 
 /\*
-filter=[[["column_name",condition,value],["column_name",condition,value]],[["column_name",condition,value],["column_name",condition,value]]]
+filter=[[["column_name",condition","value],["column_name","condition","value"]],[["column_name",condition","value],["column_name","condition","value]]]
 conditions to support
 =,like,in,<,>,<=,>=,!=
 

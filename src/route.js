@@ -9,27 +9,15 @@ const CONSTANTS = {
   DATETIME: "required|datetime",
 };
 const { jsonSafeParse, stringify, RemoveUnknownData } = require("./function");
-module.exports = function route(
-  db,
-  model,
-  modelStructure = {},
-  modelPk = "",
-  modelSearch = "",
-  unique = [],
-  override = {}
-) {
+module.exports = function route(db, model, modelStructure = {}, modelPk = "", modelSearch = "", unique = [], override = {}) {
   /* 
   1) Override -> structure {body:[],params:[],header:[],session:[],set:[{key:value}]}
   TODO:
   1) Bulk Validate unique should not be present in the data of post request (User Insert instead of Change)
   2) Use Filter object for creating where condition instead of whereEq and WhereLike
   */
-  const modelNotFound = `${
-    model.charAt(0).toUpperCase() + model.slice(1)
-  } not found`;
-  const modelAlreadyFound = `${
-    model.charAt(0).toUpperCase() + model.slice(1)
-  } is already present`;
+  const modelNotFound = `${model.charAt(0).toUpperCase() + model.slice(1)} not found`;
+  const modelAlreadyFound = `${model.charAt(0).toUpperCase() + model.slice(1)} is already present`;
   return express
     .Router()
     .get("/:" + modelPk, (req, res) => {
@@ -47,19 +35,22 @@ module.exports = function route(
       } catch (err) {
         res.status(422).send({ message: "Invalid filter", type: "danger" });
       }
-      db.get(model, filter).then((data) => {
-        if (data.count === 1) {
-          res.send(data["data"][0]);
-        } else {
-          res.status(404).send({ message: modelNotFound, type: "error" });
-        }
-      });
+      db.get(model, filter)
+        .then((data) => {
+          if (data.count === 1) {
+            res.send(data["data"][0]);
+          } else {
+            res.status(404).send({ message: modelNotFound, type: "error" });
+          }
+        })
+        .catch((err) => {
+          res.status(422).send(err);
+        });
     })
     .post("/:" + modelPk, (req, res) => {
       const payload = {};
       if (unique.length === 0) {
-        if (req.body.hasOwnProperty(modelPk))
-          payload[modelPk] = req.body[modelPk];
+        if (req.body.hasOwnProperty(modelPk)) payload[modelPk] = req.body[modelPk];
       } else {
         for (const column of unique) {
           payload[column] = req.body[column];
@@ -76,10 +67,7 @@ module.exports = function route(
           type: "error",
         });
       } else {
-        validateInput(
-          req,
-          getPayloadValidator("CREATE", modelStructure, modelPk)
-        ).then((valid) => {
+        validateInput(req, getPayloadValidator("CREATE", modelStructure, modelPk)).then((valid) => {
           req.body = stringify(req.body);
           if (valid === true) {
             req.body = payloadOverride(req.body, req, override);
@@ -104,10 +92,7 @@ module.exports = function route(
     .put("/:" + modelPk, (req, res) => {
       db.get(model, [[[modelPk, "=", req.params[modelPk]]]]).then((result) => {
         req.body[modelPk] = req.params[modelPk];
-        validateInput(
-          req,
-          getPayloadValidator("UPDATE", modelStructure, modelPk)
-        ).then((valid) => {
+        validateInput(req, getPayloadValidator("UPDATE", modelStructure, modelPk)).then((valid) => {
           if (valid) {
             req.body = stringify(req.body);
             if (result.count === 1) {
@@ -174,10 +159,7 @@ module.exports = function route(
     })
     .post("/", (req, res) => {
       //Add API
-      validateInput(
-        req,
-        getPayloadValidatorBulk("CREATE", model, modelStructure, modelPk)
-      ).then((valid) => {
+      validateInput(req, getPayloadValidatorBulk("CREATE", modelStructure, modelPk)).then((valid) => {
         if (valid === true) {
           if (req.body.hasOwnProperty("data") && Array.isArray(req.body.data)) {
             req.body.data = stringify(req.body.data);
@@ -185,10 +167,7 @@ module.exports = function route(
           req.body["data"] = payloadOverride(req.body["data"], req, override);
           //Array should not contain modelPk
           //RemovePK(modelPk, req.body["data"]);
-          req.body["data"] = RemoveUnknownData(
-            modelStructure,
-            req.body["data"]
-          );
+          req.body["data"] = RemoveUnknownData(modelStructure, req.body["data"]);
           db.upsert(model, req.body["data"], [modelPk]).then((result) => {
             res.send(result);
           });
@@ -199,19 +178,13 @@ module.exports = function route(
     })
     .put("/", (req, res) => {
       //Update API
-      validateInput(
-        req,
-        getPayloadValidatorBulk("UPDATE", model, modelStructure, modelPk)
-      ).then((valid) => {
+      validateInput(req, getPayloadValidatorBulk("UPDATE", modelStructure, modelPk)).then((valid) => {
         if (valid === true) {
           if (req.body.hasOwnProperty("data") && Array.isArray(req.body.data)) {
             req.body.data = stringify(req.body.data);
           }
           req.body["data"] = payloadOverride(req.body["data"], req, override);
-          req.body["data"] = RemoveUnknownData(
-            modelStructure,
-            req.body["data"]
-          );
+          req.body["data"] = RemoveUnknownData(modelStructure, req.body["data"]);
           db.upsert(model, req.body["data"]).then((result) => {
             res.send(result);
           });
@@ -221,10 +194,7 @@ module.exports = function route(
       });
     })
     .delete("/", (req, res) => {
-      validateInput(
-        req,
-        getPayloadValidatorBulk("DELETE", model, modelStructure, modelPk)
-      ).then((valid) => {
+      validateInput(req, getPayloadValidatorBulk("DELETE", model, modelStructure, modelPk)).then((valid) => {
         if (valid === true) {
           db.remove(model, req.body.filter).then((result) => {
             res.send(result);
@@ -292,7 +262,7 @@ function getErrorMessage(key, errors) {
   }
   return message;
 }
-function getPayloadValidatorBulk(type, model, structure, pk) {
+function getPayloadValidatorBulk(type, structure, pk) {
   const body = {};
   switch (type) {
     case "CREATE":

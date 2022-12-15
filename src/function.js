@@ -1,3 +1,5 @@
+const { Validator } = require("node-input-validator");
+
 function jsonSafeParse(obj) {
   if (typeof obj === "string") {
     try {
@@ -70,6 +72,95 @@ function objectToFilter(obj) {
   }
   return [filterArray];
 }
+function getPayloadValidator(type, structure, pk, bulk = false) {
+  const CONSTANTS = {
+    ARRAY: "required|array",
+    INTEGER: "required|integer",
+    STRING: "required|string",
+    NUMERIC: "required|numeric",
+    JSON: "required|object",
+    DATETIME: "required|datetime",
+  };
+  if (bulk) {
+    const body = {};
+    switch (type) {
+      case "CREATE":
+        body["data"] = CONSTANTS["ARRAY"];
+        for (const i in structure) {
+          if (i !== pk) body[`data.*.${i}`] = CONSTANTS[structure[i]];
+        }
+        break;
+      case "UPDATE":
+        body["data"] = CONSTANTS["ARRAY"];
+        for (const i in structure) {
+          body[`data.*.${i}`] = CONSTANTS[structure[i]];
+        }
+        break;
+      case "DELETE":
+        body["filter"] = CONSTANTS["ARRAY"];
+        break;
+      default:
+        break;
+    }
+    return body;
+  } else {
+    const validator = { body: {} };
+    switch (type) {
+      case "CREATE":
+        for (const i in structure) {
+          if (i !== pk) validator.body[i] = CONSTANTS[structure[i]];
+        }
+        break;
+      case "UPDATE":
+        for (const i in structure) {
+          validator.body[i] = CONSTANTS[structure[i]];
+        }
+        break;
+      case "DELETE":
+      case "GET":
+        validator.body[i] = CONSTANTS[structure[pk]];
+        break;
+      default:
+        break;
+    }
+    return validator.body;
+  }
+}
+/*async function validateInput(req, required) {
+  console.log(req, required);
+  for (const key in required) {
+    if (req.hasOwnProperty(key)) {
+      if (Array.isArray(req[key])) {
+        throw Error({ message: "This service supports does not support array", status: 422 });
+      }
+      let validator = new Validator(req[key], required[key]);
+      const matched = await validator.check();
+      if (!matched) {
+        console.log(getErrorMessage(key, validator.errors));
+        //throw Error({ message: getErrorMessage(key, validator.errors), status: 422 });
+      }
+    }
+  }
+  return true;
+}*/
+async function validateInput(req, required) {
+  let validator = new Validator(req, required);
+  const matched = await validator.check();
+  if (!matched) {
+    throw new Error(getErrorMessage(validator.errors), { cause: { status: 422 } });
+  }
+  return true;
+}
+function getErrorMessage(errors) {
+  let message = "";
+  for (const i in errors) {
+    if (errors.hasOwnProperty(i)) {
+      message = message + (message !== "" ? " " : "");
+      message = message + errors[i].message;
+    }
+  }
+  return message;
+}
 module.exports = {
   jsonSafeParse,
   stringify,
@@ -78,4 +169,6 @@ module.exports = {
   RemovePK,
   RemoveUnknownData,
   objectToFilter,
+  getPayloadValidator,
+  validateInput,
 };

@@ -1,62 +1,71 @@
-const { RemovePK, objectToFilter, getType, empty } = require("./function");
+const { RemovePK, objectToFilter, getType, empty, getPayloadValidator, validateInput, stringify } = require("./function");
 
-module.exports = function model(
-  db,
-  table,
-  modelStructure = {},
-  primary_key,
-  unique,
-  option = {}
-) {
+module.exports = function model(db, table, modelStructure = {}, primary_key, unique, option = {}) {
   return {
     insert: async (data) => {
-      switch (getType(data)) {
-        case "array":
-          data = RemovePK(primary_key, data);
-          break;
-        case "object":
-          delete data[primary_key];
-          break;
+      if (data.hasOwnProperty("data")) {
+        RemovePK(primary_key, data.data);
+        await validateInput(data, getPayloadValidator("CREATE", modelStructure, primary_key, true));
+        data = data.data;
+      } else {
+        delete data[primary_key];
+        await validateInput(data, getPayloadValidator("CREATE", modelStructure, primary_key, false));
       }
+      data = stringify(data);
       const insertResult = await db.upsert(table, data, unique);
-      const getResult = await db.get(table, [
-        [[primary_key, "=", insertResult.id]],
-      ]);
-      return getResult.count > 0 ? getResult["data"][0] : null;
+      if (insertResult.hasOwnProperty("id")) {
+        const getResult = await db.get(table, [[[primary_key, "=", insertResult.id]]]);
+        return getResult.count > 0 ? getResult["data"][0] : null;
+      }
+      return insertResult;
     },
     update: async (data) => {
       let updateResult = null;
-      switch (getType(data)) {
-        case "array":
-          data = RemovePK(primary_key, data);
-          updateResult = await db.upsert(table, data, unique);
-          break;
-        case "object":
-          if (!empty(data[primary_key]));
-          updateResult = await db.upsert(table, data, unique);
-          break;
-        default:
-          throw new Error("Invalid object", data);
+      if (data.hasOwnProperty("data")) {
+        await validateInput(data, getPayloadValidator("UPDATE", modelStructure, primary_key, true));
+        data = data.data;
+        data = stringify(data);
+        updateResult = await db.upsert(table, data, unique);
+      } else {
+        await validateInput(data, getPayloadValidator("UPDATE", modelStructure, primary_key, false));
+        data = stringify(data);
+        updateResult = await db.upsert(table, data, unique);
+        if (updateResult.hasOwnProperty("id")) {
+          const getResult = await db.get(table, [[[primary_key, "=", updateResult.id]]]);
+          return getResult.count > 0 ? getResult["data"][0] : null;
+        }
       }
-      const getResult = await db.get(table, [
-        [[primary_key, "=", updateResult.id]],
-      ]);
-      return getResult.count > 0 ? getResult["data"][0] : null;
+      return updateResult;
     },
     upsert: async (data) => {
-      return await db.upsert(table, data, unique);
+      let updateResult = null;
+      if (data.hasOwnProperty("data")) {
+        await validateInput(data, getPayloadValidator("CREATE", modelStructure, primary_key, true));
+        data = data.data;
+        data = stringify(data);
+        updateResult = await db.upsert(table, data, unique);
+      } else {
+        await validateInput(data, getPayloadValidator("CREATE", modelStructure, primary_key, false));
+        data = stringify(data);
+        updateResult = await db.upsert(table, data, unique);
+        if (updateResult.hasOwnProperty("id")) {
+          const getResult = await db.get(table, [[[primary_key, "=", updateResult.id]]]);
+          return getResult.count > 0 ? getResult["data"][0] : null;
+        }
+      }
+      return updateResult;
     },
-    remove: async (data) => {
-      switch (getType(data)) {
+    remove: async (filter) => {
+      switch (getType(filter)) {
         case "array":
-          await db.remove(table, data);
+          await db.remove(table, filter);
           return true;
         case "object":
-          await db.remove(table, objectToFilter(data));
+          await db.remove(table, objectToFilter(filter));
           return true;
         case "number":
         case "string":
-          await db.remove(table, [[[primary_key, "=", data]]]);
+          await db.remove(table, [[[primary_key, "=", filter]]]);
           return true;
         default:
           return false;
@@ -67,15 +76,15 @@ module.exports = function model(
       if (result.count > 0) return result["data"][0];
       else return null;
     },
-    find: async (data) => {
-      switch (getType(data)) {
+    find: async (filter) => {
+      switch (getType(filter)) {
         case "array":
-          return await db.get(table, data);
+          return await db.get(table, filter);
         case "object":
-          return await db.get(table, objectToFilter(data));
+          return await db.get(table, objectToFilter(filter));
         case "number":
         case "string":
-          return await db.get(table, [[[primary_key, "=", data]]]);
+          return await db.get(table, [[[primary_key, "=", filter]]]);
         default:
           return [];
       }
