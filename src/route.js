@@ -9,7 +9,7 @@ const CONSTANTS = {
   DATETIME: "required|datetime",
 };
 const { jsonSafeParse, stringify, RemoveUnknownData } = require("./function");
-module.exports = function route(db, model, modelStructure = {}, modelPk = "", modelSearch = "", unique = [], override = {}) {
+module.exports = function route(db, model, modelStructure = {}, modelPk = "", unique = [], modelSearch = "", override = {}) {
   /* 
   1) Override -> structure {body:[],params:[],header:[],session:[],set:[{key:value}]}
   TODO:

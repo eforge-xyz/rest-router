@@ -65,13 +65,7 @@ function RemoveUnknownData(ModelStructure, data) {
 function empty(obj) {
   return obj === null || obj === undefined || obj === "";
 }
-function objectToFilter(obj) {
-  let filterArray = [];
-  for (let key in obj) {
-    filterArray.push([key, "=", obj[key]]);
-  }
-  return [filterArray];
-}
+
 function getPayloadValidator(type, structure, pk, bulk = false) {
   const CONSTANTS = {
     ARRAY: "required|array",
@@ -161,6 +155,40 @@ function getErrorMessage(errors) {
   }
   return message;
 }
+function objectToFilter(obj) {
+  let filterArray = [];
+  for (let key in obj) {
+    filterArray.push([key, "=", obj[key]]);
+  }
+  return [filterArray];
+}
+function dataToFilter(data, primary_key) {
+  let filter = [];
+  let type = getType(data);
+  if (data.hasOwnProperty("filter") && getType(data.filter) === "array") {
+    filter = data.filter;
+  } else if (type === "object" && Object.keys(data).length > 0) {
+    filter = objectToFilter(data);
+  } else if (type === "number" || type === "string") {
+    filter = [[[primary_key, "=", data]]];
+  } else if (type === "object" && Object.keys(data).length === 0) {
+    filter = [[[]]];
+  } else {
+    throw new Error("Invalid filter Inputs", { cause: { status: 422 } });
+  }
+  return filter;
+}
+function errorResponse(res, err) {
+  let message = "";
+  if (err.hasOwnProperty("sqlMessage")) message = err.sqlMessage;
+  else if (err.hasOwnProperty("message")) message = err.message;
+  else message = "unknown error: " + err.toString();
+  let status = 500;
+  if (err.hasOwnProperty("cause") && err.cause.hasOwnProperty("status")) {
+    status = err.cause.status;
+  }
+  res.status(status).send({ type: "danger", message });
+}
 module.exports = {
   jsonSafeParse,
   stringify,
@@ -171,4 +199,6 @@ module.exports = {
   objectToFilter,
   getPayloadValidator,
   validateInput,
+  errorResponse,
+  dataToFilter,
 };

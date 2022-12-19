@@ -1,6 +1,6 @@
-const { RemovePK, objectToFilter, getType, empty, getPayloadValidator, validateInput, stringify } = require("./function");
+const { RemovePK, getType, empty, getPayloadValidator, validateInput, stringify, dataToFilter } = require("./function");
 
-module.exports = function model(db, table, modelStructure = {}, primary_key, unique, option = {}) {
+module.exports = function model(db, table, modelStructure = {}, primary_key, unique, option = { safeDelete: null }) {
   return {
     insert: async (data) => {
       if (data.hasOwnProperty("data")) {
@@ -38,6 +38,7 @@ module.exports = function model(db, table, modelStructure = {}, primary_key, uni
       return updateResult;
     },
     upsert: async (data) => {
+      //* Same as Update but primary key is optional */
       let updateResult = null;
       if (data.hasOwnProperty("data")) {
         await validateInput(data, getPayloadValidator("CREATE", modelStructure, primary_key, true));
@@ -55,53 +56,37 @@ module.exports = function model(db, table, modelStructure = {}, primary_key, uni
       }
       return updateResult;
     },
-    remove: async (filter) => {
-      switch (getType(filter)) {
-        case "array":
-          await db.remove(table, filter);
-          return true;
-        case "object":
-          await db.remove(table, objectToFilter(filter));
-          return true;
-        case "number":
-        case "string":
-          await db.remove(table, [[[primary_key, "=", filter]]]);
-          return true;
-        default:
-          return false;
-      }
+    remove: async (data) => {
+      let filter = dataToFilter(data, primary_key);
+      return await db.remove(table, filter);
     },
     byId: async (id) => {
-      const result = await db.get(table, [[[primary_key, "=", id]]]);
-      if (result.count > 0) return result["data"][0];
-      else return null;
-    },
-    find: async (filter) => {
-      switch (getType(filter)) {
-        case "array":
-          return await db.get(table, filter);
-        case "object":
-          return await db.get(table, objectToFilter(filter));
-        case "number":
-        case "string":
-          return await db.get(table, [[[primary_key, "=", filter]]]);
-        default:
-          return [];
+      let type = getType(id);
+      if (type === "string" || type === "number") {
+        const result = await db.get(table, [[[primary_key, "=", id]]]);
+        if (result.count > 0) return result["data"][0];
+        else return null;
+      } else {
+        throw new Error("Invalid id value", { cause: { status: 422 } });
       }
     },
-    list: async (filter, page = 0, size = 30) => {
-      //list(table, filter = [], page = 0, limit = 30)
-      switch (getType(data)) {
-        case "array":
-          return await db.list(table, filter, page, size);
-        case "object":
-          return await db.list(table, objectToFilter(data), page, size);
-        case "number":
-        case "string":
-          return await db.list(table, [[[primary_key, "=", data]]], page, size);
-        default:
-          return [];
+    find: async (data) => {
+      let filter = dataToFilter(data, primary_key);
+      return await db.get(table, filter);
+    },
+    list: async (data) => {
+      let page = 0;
+      let size = 30;
+      if (data.hasOwnProperty("page")) {
+        page = data.page;
+        delete data.page;
       }
+      if (data.hasOwnProperty("size")) {
+        size = data.size;
+        delete data.size;
+      }
+      let filter = dataToFilter(data, primary_key);
+      return await db.list(table, filter, page, size);
     },
   };
 };

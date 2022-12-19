@@ -7,6 +7,7 @@ const faker = require("faker");
 const { db, model } = require("../src/index.js");
 const app = require("./../src/serve.js");
 const { isError } = require("util");
+const { response } = require("./../src/serve.js");
 let test = model(
   db,
   table,
@@ -45,11 +46,29 @@ describe("Model Function", function () {
     });
     done();
   });
-  describe("Single Entry", function () {
-    let payload = { name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } };
-    let payloadUpd = { name: faker.name.findName(), description: "123ABC Upd", type: 2, info: { message: "test message Upd" } };
-    let test_id = 0;
-    it("Add an Entry", function (done) {
+  let test_id = 0;
+  let payload = { name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } };
+  let payloadUpd = { name: faker.name.findName(), description: "123ABC Upd", type: 2, info: { message: "test message Upd" } };
+  let bulkPayload = {
+    data: [
+      { name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } },
+      { name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } },
+      { name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } },
+      { name: faker.name.findName(), description: "123ABC", type: 2, info: { message: "test message" } },
+      { name: faker.name.findName(), description: "123ABC", type: 2, info: { message: "test message" } },
+    ],
+  };
+  let bulkPayloadUpd = {
+    data: [
+      { test_id: 2, name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } },
+      { test_id: 3, name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } },
+      { test_id: 4, name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } },
+      { test_id: 5, name: faker.name.findName(), description: "123ABC", type: 2, info: { message: "test message" } },
+      { test_id: 6, name: faker.name.findName(), description: "123ABC", type: 2, info: { message: "test message" } },
+    ],
+  };
+  describe("insert", function () {
+    it("Add a Single Entry", function (done) {
       test
         .insert({ ...payload })
         .then((data) => {
@@ -66,6 +85,21 @@ describe("Model Function", function () {
           done();
         });
     });
+    it("Add multiple entries", function (done) {
+      test
+        .insert({ ...bulkPayload })
+        .then((data) => {
+          console.log();
+          assert.equal(data.rows, bulkPayload.data.length);
+          done();
+        })
+        .catch((err) => {
+          console.log(err);
+          done();
+        });
+    });
+  });
+  describe("update", function () {
     it("Update an Entry", function (done) {
       test
         .update({ ...payloadUpd, test_id })
@@ -82,6 +116,20 @@ describe("Model Function", function () {
           done();
         });
     });
+    it("Update multiple entries", function (done) {
+      test
+        .update({ ...bulkPayloadUpd })
+        .then((data) => {
+          assert.equal(data.rows, bulkPayloadUpd.data.length);
+          done();
+        })
+        .catch((err) => {
+          console.log(err);
+          done();
+        });
+    });
+  });
+  describe("byId", function () {
     it("Get an Entry byId", function (done) {
       test
         .byId(test_id)
@@ -93,7 +141,66 @@ describe("Model Function", function () {
           console.log(err);
         });
     });
-    it("Delete an Entry byId", function (done) {
+  });
+  describe("find", function () {
+    it("find an Entry by Id", function (done) {
+      test
+        .find(test_id)
+        .then((data) => {
+          assert.equal(test_id, data.data[0].test_id);
+          done();
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    });
+    it("find an Entry by filter object", function (done) {
+      test
+        .find({ test_id })
+        .then((data) => {
+          assert.equal(test_id, data.data[0].test_id);
+          done();
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    });
+    it("find an Entry by filter array", function (done) {
+      test
+        .find({ filter: [[["test_id", "=", test_id]]] })
+        .then((data) => {
+          assert.equal(test_id, data.data[0].test_id);
+          done();
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    });
+    it("find an Entries by filter object", function (done) {
+      test
+        .find({ type: 1 })
+        .then((data) => {
+          assert.equal(3, data.count);
+          done();
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    });
+    it("find an Entries by filter array", function (done) {
+      test
+        .find({ filter: [[["type", "=", 1]]] })
+        .then((data) => {
+          assert.equal(3, data.count);
+          done();
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    });
+  });
+  describe("remove", function () {
+    it("remove an Entry byId", function (done) {
       test
         .remove(test_id)
         .then((data) => {
@@ -107,59 +214,74 @@ describe("Model Function", function () {
           console.log(err);
         });
     });
-    /*
-    it("find Entries by Object", function (done) {});
-    it("find Entries by Filter", function (done) {});
-    it("Delete an Entry by Filter Array", function (done) {});
-    it("Delete an Entry by Filter Object", function (done) {});
-    it("List with Page 0", function (done) {});
-    it("List with Page 1", function (done) {});
-    it("List with Filter Object", function (done) {});
-    it("List with Filter Array", function (done) {});
-    */
-  });
-  describe("Multiple Entry", function () {
-    let payload = {
-      data: [
-        { name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } },
-        { name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } },
-        { name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } },
-        { name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } },
-        { name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } },
-      ],
-    };
-    let payloadUpd = {
-      data: [
-        { test_id: 2, name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } },
-        { test_id: 3, name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } },
-        { test_id: 4, name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } },
-        { test_id: 5, name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } },
-        { test_id: 6, name: faker.name.findName(), description: "123ABC", type: 1, info: { message: "test message" } },
-      ],
-    };
-    it("Add multiple", function (done) {
-      test
-        .insert({ ...payload })
-        .then((data) => {
-          assert.equal(data.rows, payload.data.length);
-          done();
-        })
-        .catch((err) => {
-          console.log(err);
-          done();
-        });
+    it("remove entries by filter array", function (done) {
+      test.find({ filter: [[["type", "=", 1]]] }).then((data) => {
+        assert.equal(data.count > 0, true);
+        test
+          .remove({ filter: [[["type", "=", 1]]] })
+          .then((data) => {
+            assert(data, true);
+            test.find({ filter: [[["type", "=", 1]]] }).then((data) => {
+              assert.equal(data.count, 0);
+              done();
+            });
+          })
+          .catch((err) => {
+            console.log(err);
+          });
+      });
     });
-    it("Update multiple", function (done) {
-      test
-        .update({ ...payloadUpd })
-        .then((data) => {
-          assert.equal(data.rows, payload.data.length);
-          done();
-        })
-        .catch((err) => {
-          console.log(err);
-          done();
-        });
+    it("remove entries by filter object", function (done) {
+      test.find({ type: 2 }).then((data) => {
+        assert.equal(data.count > 0, true);
+        test
+          .remove({ type: 2 })
+          .then((data) => {
+            assert(data, true);
+            test.find({ type: 2 }).then((data) => {
+              assert.equal(data.count, 0);
+              done();
+            });
+          })
+          .catch((err) => {
+            console.log(err);
+          });
+      });
+    });
+  });
+  describe("list", function () {
+    let bulkPayload = { data: [] };
+    for (let i = 0; i < 100; i++) {
+      bulkPayload.data.push({ name: faker.name.findName(), description: "123ABC", type: i % 5, info: { message: "test message" } });
+    }
+    it("Add 100 entries", function (done) {
+      test.insert(bulkPayload).then((response) => {
+        done();
+      });
+    });
+    it("List with Page 0 should list 30 entries", function (done) {
+      test.list({ page: 0 }).then((response) => {
+        assert.equal(response.data.length, 30);
+        done();
+      });
+    });
+    it("List with Page 3 should list 10 entries", function (done) {
+      test.list({ page: 3 }).then((response) => {
+        assert.equal(response.data.length, 10);
+        done();
+      });
+    });
+    it("List with Filter Object", function (done) {
+      test.list({ type: 0 }).then((response) => {
+        assert.equal(response.data.length, 20);
+        done();
+      });
+    });
+    it("List with Filter array", function (done) {
+      test.list({ filter: [[["type", "in", [0, 1]]]] }).then((response) => {
+        assert.equal(response.count, 40);
+        done();
+      });
     });
   });
 });
