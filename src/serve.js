@@ -21,7 +21,7 @@ if (process.env.NODE_ENV === "TEST") {
   port = process.env.port;
 }
 
-const { db, route } = require("./index");
+const { db, model, route } = require("./index");
 db.connect({
   connectionLimit: 100,
   host: process.env.DB_HOST,
@@ -31,35 +31,23 @@ db.connect({
   port: process.env.DB_PORT,
   charset: "utf8mb4",
 });
-/*app.use(
-  "/test/user",
-  authenticate({ role: ["admin", "manager"], offering: "test" }),
-  route("test", [], "test_id", "test_name", [])
+const test = model(
+  db,
+  "test",
+  {
+    test_id: "required|integer",
+    user_id: "required|integer",
+    name: "required|string",
+    description: "string",
+    type: "required|integer",
+    info: "required|object",
+    is_deleted: "boolean",
+  },
+  "test_id",
+  [],
+  { safeDelete: "is_deleted" }
 );
-app.use("/test", require("./module/test.js").route);*/
-app.use(
-  "/test",
-  route(
-    db,
-    "test",
-    {
-      test_id: "INTEGER",
-      name: "STRING",
-      description: "STRING",
-      type: "INTEGER",
-      info: "JSON",
-    },
-    "test_id",
-    "name",
-    [],
-    {
-      override: {
-        user_id: ["req", "user", "user_id"],
-      },
-      safe_delete: true,
-    }
-  )
-);
+app.use("/test", route(test, { user_id: ["session", "user", "user_id"] }));
 
 app.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`);

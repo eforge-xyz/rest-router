@@ -15,9 +15,11 @@ let test = model(
     description: "required|string",
     type: "required|integer",
     info: "required|object",
+    is_deleted: "boolean",
   },
   "test_id",
-  ["test_id"]
+  ["test_id"],
+  { safeDelete: "is_deleted" }
 );
 describe("Model Function", function () {
   before(function (done) {
@@ -28,8 +30,9 @@ describe("Model Function", function () {
         "`test_id` int(11) NOT NULL AUTO_INCREMENT," +
         "`name` varchar(63) NOT NULL DEFAULT ''," +
         "`description` varchar(255) NOT NULL DEFAULT ''," +
-        "`type` int(11) NOT NULL NOT NULL DEFAULT 0," +
+        "`type` int(11) NOT NULL DEFAULT 0," +
         "`info` json NOT NULL," +
+        "`is_deleted` int(1) NOT NULL DEFAULT 0," +
         "`created_at` datetime NOT NULL DEFAULT current_timestamp()," +
         "`modified_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()," +
         "PRIMARY KEY (`test_id`)" +
@@ -42,7 +45,6 @@ describe("Model Function", function () {
     db.query("DROP TABLE `" + table + "`;").then(() => {
       done();
     });
-    done();
   });
   let test_id = 0;
   let payload = {
@@ -342,16 +344,27 @@ describe("Model Function", function () {
       });
     });
     it("List with Page 0 should list 30 entries", function (done) {
-      test.list({ page: 0 }).then((response) => {
-        assert.equal(response.data.length, 30);
-        done();
-      });
+      test
+        .list({ page: 0 })
+        .then((response) => {
+          assert.equal(response.data.length, 30);
+          assert.equal(response.count, 100);
+          done();
+        })
+        .catch((err) => {
+          console.log(err);
+        });
     });
     it("List with Page 3 should list 10 entries", function (done) {
-      test.list({ page: 3 }).then((response) => {
-        assert.equal(response.data.length, 10);
-        done();
-      });
+      test
+        .list({ page: 3 })
+        .then((response) => {
+          assert.equal(response.data.length, 10);
+          done();
+        })
+        .catch((err) => {
+          console.log(err);
+        });
     });
     it("List with Filter Object", function (done) {
       test.list({ type: 0 }).then((response) => {
@@ -364,6 +377,16 @@ describe("Model Function", function () {
         assert.equal(response.count, 40);
         done();
       });
+    });
+    it("Remove Bulk as SafeDelete and findAll", function (done) {
+      test
+        .remove({ filter: [[["type", "in", [0, 1, 2, 3, 4]]]] })
+        .then((response) => {
+          test.find({}).then((response1) => {
+            assert.equal(response1.count, 0);
+            done();
+          });
+        });
     });
   });
 });

@@ -17,7 +17,7 @@ function query(sql, parameter = []) {
     });
   });
 }
-function where(filter) {
+function where(filter, safeDelete = null) {
   try {
     if (
       filter === null ||
@@ -26,13 +26,23 @@ function where(filter) {
       filter[0].length == [[]] ||
       filter[0][0].length == [[[]]]
     ) {
-      return {
-        query: "",
-        value: [],
-      };
+      if (safeDelete === null) {
+        return {
+          query: "",
+          value: [],
+        };
+      } else {
+        filter = [[]];
+      }
     }
   } catch (err) {
     return null;
+  }
+
+  if (safeDelete !== null) {
+    for (const filterItem of filter) {
+      filterItem.push([safeDelete, "=", 0]);
+    }
   }
   const valid_conditionals = ["=", "like", "in", "<", ">", "<=", ">=", "!="];
   let conditionOr = [];
@@ -65,43 +75,15 @@ function where(filter) {
     value,
   };
 }
-/*
-function where(whereEq = [], whereLike = []) {
-  if (Object.keys(whereEq).length + Object.keys(whereLike).length < 1) {
-    return { query: " ", value: [] };
-  }
-  const whereKey = [];
-  const whereValue = [];
-  for (const [i, v] of Object.entries(whereEq)) {
-    if (typeof v === "object") {
-      whereKey.push("?? in " + arrayParam(v.length));
-      whereValue.push(i);
-      whereValue.push(...v);
-    } else {
-      whereKey.push("?? = ?");
-      whereValue.push(i);
-      whereValue.push(v);
-    }
-  }
-  for (const [i, v] of Object.entries(whereLike)) {
-    whereKey.push("?? like ?");
-    whereValue.push(i);
-    whereValue.push(`%${v}%`);
-  }
-  return {
-    query: ` WHERE ${whereKey.join(" AND ")} `,
-    value: whereValue,
-  };
-}
-*/
-
-function get(table, filter = []) {
+function get(table, filter = [], safeDelete = null) {
   const response = {};
   return new Promise((resolve, reject) => {
-    const whereData = where(filter);
-    if (whereData === null) {
-      reject({ message: WHERE_INVALID });
+    if (safeDelete !== null) {
+      for (const filterItem of filter) {
+        filterItem.push([safeDelete, "=", 0]);
+      }
     }
+    const whereData = where(filter, safeDelete);
     const statement = `SELECT * FROM ?? ${whereData["query"]};`;
     pool.query(
       statement,
@@ -111,7 +93,7 @@ function get(table, filter = []) {
           reject({ message: error.sqlMessage });
         }
         response["data"] = jsonSafeParse(results);
-        response["count"] = qcount(table, filter).then((count) => {
+        response["count"] = qcount(table, filter, safeDelete).then((count) => {
           response["count"] = count;
           resolve(response);
         });
@@ -120,10 +102,10 @@ function get(table, filter = []) {
   });
 }
 
-function list(table, filter = [], page = 0, limit = 30) {
+function list(table, filter = [], safeDelete = null, page = 0, limit = 30) {
   const response = {};
   return new Promise((resolve, reject) => {
-    const whereData = where(filter);
+    const whereData = where(filter, safeDelete);
     if (whereData == null) {
       reject({ message: WHERE_INVALID });
     }
@@ -136,7 +118,7 @@ function list(table, filter = [], page = 0, limit = 30) {
           reject({ message: error.sqlMessage });
         }
         response["data"] = jsonSafeParse(results);
-        response["count"] = qcount(table, filter).then((count) => {
+        response["count"] = qcount(table, filter, safeDelete).then((count) => {
           response["count"] = count;
           resolve(response);
         });
@@ -145,9 +127,9 @@ function list(table, filter = [], page = 0, limit = 30) {
   });
 }
 
-function qcount(table, filter) {
+function qcount(table, filter, safeDelete = null) {
   return new Promise((resolve) => {
-    const whereData = where(filter);
+    const whereData = where(filter, safeDelete);
     if (whereData == null) {
       reject({ message: WHERE_INVALID });
     }
@@ -166,7 +148,7 @@ function qcount(table, filter) {
   });
 }
 
-function remove(table, filter) {
+function remove(table, filter, safeDelete = null) {
   return new Promise((resolve, reject) => {
     const whereData = where(filter);
     if (whereData == null) {
@@ -175,10 +157,17 @@ function remove(table, filter) {
     if (whereData.value.length < 1) {
       reject({ status: "unable to remove as there is not filter attributes" });
     } else {
-      const statement = `DELETE FROM ?? ${whereData["query"]};`;
+      let statement = "";
+      if (safeDelete != null) {
+        statement = `UPDATE  ?? SET ?? = 1  ${whereData["query"]};`;
+      } else {
+        statement = `DELETE FROM ?? ${whereData["query"]};`;
+      }
       pool.query(
         statement,
-        [table, ...whereData["value"]],
+        safeDelete != null
+          ? [table, safeDelete, ...whereData["value"]]
+          : [table, ...whereData["value"]],
         function (error, results) {
           if (error || results === undefined) {
             reject({ message: error.sqlMessage });
