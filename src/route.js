@@ -52,7 +52,7 @@ module.exports = function route(model, override = {}) {
         });
     })
     .get("/", (req, res) => {
-      let payload = payloadOverride(req.params, req, override);
+      let payload = payloadOverride(req.query, req, override);
       model
         .list(payload)
         .then((response) => {
