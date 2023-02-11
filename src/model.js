@@ -139,6 +139,7 @@ module.exports = function model(
     },
     pk: primary_key,
     modelStructure,
+    table,
   };
 };
 /*

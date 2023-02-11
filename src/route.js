@@ -7,9 +7,10 @@ module.exports = function route(model, override = {}) {
       let payload = payloadOverride(req.body, req, override);
       payload[model.pk] = req.params.id;
       model
-        .get(payload)
+        .find(payload)
         .then((response) => {
-          res.status(200).send(response);
+          if (response.count > 0) res.status(200).send(response.data[0]);
+          else res.status(404).send({ message: "Not Found", type: "danger" });
         })
         .catch((err) => {
           errorResponse(res, err);
