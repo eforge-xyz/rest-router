@@ -106,6 +106,7 @@ function list(table, filter = [], safeDelete = null, page = 0, limit = 30) {
   const response = {};
   return new Promise((resolve, reject) => {
     const whereData = where(filter, safeDelete);
+    //console.log(filter, whereData);
     if (whereData == null) {
       reject({ message: WHERE_INVALID });
     }
@@ -274,7 +275,11 @@ function upsert(table, data, uniqueKeys = []) {
 function getChangeParameter(row, uniqueKeys, onDuplicate = true) {
   const insertColumn = Object.keys(row);
   const updateColumn = [];
-  const queryStart = "INSERT INTO ?? " + insertParam(insertColumn.length);
+  const queryStart =
+    "INSERT " +
+    (!onDuplicate ? "IGNORE" : "") +
+    " INTO ?? " +
+    insertParam(insertColumn.length);
   let queryEnd = "";
   if (onDuplicate) {
     queryEnd = " ON DUPLICATE KEY UPDATE ";
@@ -337,10 +342,11 @@ module.exports = {
   upsert,
   change: upsert,
   pool,
+  insert,
 };
 
-/*function insert(table, data, uniqueKeys = []) {
-  return new Promise((resolve) => {
+function insert(table, data, uniqueKeys = []) {
+  return new Promise((resolve, reject) => {
     let array = [];
     const promise = [];
     let count = 0;
@@ -371,8 +377,11 @@ module.exports = {
               .promise()
               .query(
                 statement,
-                [table, ...insertColumn, value, ...updateColumn],
+                [table, ...insertColumn, value],
                 function (_error, results) {
+                  if (error) {
+                    reject(error);
+                  }
                   resolve(results);
                 }
               )
@@ -388,8 +397,11 @@ module.exports = {
           .promise()
           .query(
             statement,
-            [table, ...insertColumn, value, ...updateColumn],
-            function (_error, results) {
+            [table, ...insertColumn, value],
+            function (error, results) {
+              if (error) {
+                reject(error);
+              }
               resolve(results);
             }
           )
@@ -410,15 +422,17 @@ module.exports = {
           if (total === 1) {
             response["id"] = results[0][0].insertId;
           }
-        } catch (err) {}
-        resolve(response);
+          resolve(response);
+        } catch (err) {
+          reject(err);
+        }
       })
       .catch((error) => {
-        resolve({ message: error.sqlMessage, type: "danger" });
+        reject({ message: error.sqlMessage, type: "danger" });
       });
   });
 }
-
+/*
 function update(table, data, uniqueKeys = []) {
   return new Promise((resolve) => {
     let array = [];

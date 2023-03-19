@@ -21,7 +21,7 @@ let test = model(
   ["test_id"],
   { safeDelete: "is_deleted" }
 );
-describe("Model Function", function () {
+describe("Model Function Safe Delete", function () {
   before(function (done) {
     db.query(
       "CREATE TABLE IF NOT EXISTS`" +

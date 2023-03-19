@@ -3,6 +3,7 @@ const {
   getPayloadValidator,
   validateInput,
   dataToFilter,
+  RemoveUnknownData,
 } = require("./validator");
 const { getType, jsonStringify, jsonSafeParse } = require("./function");
 /*TODO: 
@@ -39,7 +40,7 @@ module.exports = function model(
         );
       }
       data = jsonStringify(data);
-      const insertResult = await db.upsert(table, data, unique);
+      const insertResult = await db.insert(table, data, unique);
       if (insertResult.hasOwnProperty("id")) {
         const getResult = await db.get(table, [
           [[primary_key, "=", insertResult.id]],
@@ -56,6 +57,7 @@ module.exports = function model(
           getPayloadValidator("UPDATE", modelStructure, primary_key, true)
         );
         data = data.data;
+        data = RemoveUnknownData(modelStructure, data);
         data = jsonStringify(data);
         updateResult = await db.upsert(table, data, unique);
       } else {
@@ -63,6 +65,7 @@ module.exports = function model(
           data,
           getPayloadValidator("UPDATE", modelStructure, primary_key, false)
         );
+        data = RemoveUnknownData(modelStructure, [data]);
         data = jsonStringify(data);
         updateResult = await db.upsert(table, data, unique);
         if (updateResult.hasOwnProperty("id")) {

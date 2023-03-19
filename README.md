@@ -3,7 +3,7 @@
 Generative API Creation using mysql2 and express libraries in node js
 
 ```
-const { db, route } = require("mysql2-express-crud");
+const { db, model,route } = require("mysql2-express-crud");
 db.connect({
   connectionLimit: 100,
   host: process.env.DB_HOST,
@@ -13,7 +13,34 @@ db.connect({
   port: process.env.DB_PORT,
   charset: "utf8mb4",
 });
-app.use("/test", route("test", {}, ["test_id"]));
+
+let test = model( db,
+  "test", //table name
+  {//table data structure
+    test_id: "required|integer",
+    name: "required|string",
+    description: "required|string",
+    type: "required|integer",
+    info: "required|object",
+    is_deleted: "boolean"
+  },
+  "test_id",//primary key/ auto increment key
+  ["test_id"],//array of columns which makes the row unique
+  { safeDelete: "is_deleted" }//column used to declare safe delete option
+  )
+app.use("/test", route(test)); // create 8 endpoints
+
+Induvidual
+GET /:id
+POST /:id
+PUT /:id
+DELETE /:id
+
+Bulk
+GET /
+POST /
+PUT /
+DELETE /
 ```
 
 /\*
@@ -26,41 +53,6 @@ conditions to support
 3rd Array is Conditional
 
 \*/
-
-## Usage
-
-app.use(endpoint,route(table_name - name of the table ,overrides - object of multiple json key value pair ,unique_keys - array of string))
-
-Will create 3 endpoints
-
-### /change
-
-jsonbody ->
-[{"test_id":1,"test_name":"test12"}]
-
-### /list
-
-jsonbody ->
-{"where":{},where_like:{},"limit":30,"offset":0}
-
-### /remove
-
-jsonbody ->
-{"where":{"test_id":[1,2,3]},where_like:{},"limit":30,"offset":0}
-
-GET /resources/:id
-POST /resources/add (Insert)
-PUT /resources/:id (Update)
-DELETE /resources/:id (Delete)
-
-GET /resources
-[where {},page 0,limit 30]
-POST /resources (Insert)
-[{},{}]
-PUT /resources (Update)
-[{},{}]
-DELETE /resources (Delete)
-[{},{}]
 
 ```
 /module/test.js

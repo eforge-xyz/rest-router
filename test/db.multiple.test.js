@@ -94,25 +94,25 @@ describe("Database Functions", function () {
       });
     });
     it("List Second page", function (done) {
-      db.list(table, [], 1).then((data) => {
+      db.list(table, [], null, 1).then((data) => {
         assert.ok(data["data"].length == 30);
         done();
       });
     });
     it("List First page Seachable", function (done) {
-      db.list(table, [[["test_name", "like", "Mr"]]], 0).then((data) => {
+      db.list(table, [[["test_name", "like", "Mr"]]], null, 0).then((data) => {
         assert.ok(data["data"].length <= 30 && data["data"].length > 0);
         done();
       });
     });
     it("List Second page Seachable", function (done) {
-      db.list(table, [[["test_name", "like", "Mr"]]], 1).then((data) => {
+      db.list(table, [[["test_name", "like", "Mr"]]], null, 1).then((data) => {
         assert.ok(data["data"].length <= 30);
         done();
       });
     });
     it("List with incorrect data", function (done) {
-      db.list(table, [[["unknown_column", "=", "Mr."]]], 1)
+      db.list(table, [[["unknown_column", "=", "Mr."]]], null, 1)
         .then((data) => {})
         .catch((err) => {
           assert.ok(
@@ -122,7 +122,7 @@ describe("Database Functions", function () {
         });
     });
     it("List with invalid object", function (done) {
-      db.list(table, { unknown_column: "Mr." }, 1)
+      db.list(table, { unknown_column: "Mr." }, null, 1)
         .then((data) => {})
         .catch((err) => {
           assert.ok(err.message == "Invalid filter object");

@@ -45,10 +45,20 @@ function getType(obj) {
 function empty(obj) {
   return obj === null || obj === undefined || obj === "";
 }
-
+function objectSelecter(obj, picker) {
+  for (let i of picker) {
+    if (obj.hasOwnProperty(i)) {
+      obj = obj[i];
+    } else {
+      return null;
+    }
+  }
+  return obj;
+}
 module.exports = {
   jsonSafeParse,
   jsonStringify,
   getType,
   empty,
+  objectSelecter,
 };
