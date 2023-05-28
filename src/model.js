@@ -6,21 +6,12 @@ const {
   RemoveUnknownData,
 } = require("./validator");
 const { getType, jsonStringify, jsonSafeParse } = require("./function");
-/*TODO: 
-SafeDelete
-  Get,List,Find,Remove -> add to filter
-  Insert,Update,Upsert - > handle using where condition
-Bulk Update -> Return updated objects
-Bulk Upsert -> Return updated Objects ? 
-Bulk Insert -> Return inserted Objects ? 
-
-*/
 module.exports = function model(
   db,
   table,
   modelStructure = {},
-  primary_key,
-  unique,
+  primary_key = "id",
+  unique = [],
   option = { safeDelete: null }
 ) {
   return {
@@ -47,6 +38,7 @@ module.exports = function model(
         ]);
         return getResult.count > 0 ? getResult["data"][0] : null;
       }
+      //TODO: Bulk Insert -> Return inserted objects
       return insertResult;
     },
     update: async (data) => {
@@ -60,6 +52,7 @@ module.exports = function model(
         data = RemoveUnknownData(modelStructure, data);
         data = jsonStringify(data);
         updateResult = await db.upsert(table, data, unique);
+        //TODO: Bulk Update -> Return updated objects
       } else {
         await validateInput(
           data,
@@ -73,6 +66,14 @@ module.exports = function model(
             [[primary_key, "=", updateResult.id]],
           ]);
           return getResult.count > 0 ? getResult["data"][0] : null;
+        } else if (data.hasOwnProperty(primary_key)) {
+          const result = await db.get(
+            table,
+            [[[primary_key, "=", data[primary_key]]]],
+            option.safeDelete
+          );
+          if (result.count > 0) return result["data"][0];
+          else return null;
         }
       }
       return updateResult;
@@ -88,6 +89,7 @@ module.exports = function model(
         data = data.data;
         data = jsonStringify(data);
         updateResult = await db.upsert(table, data, unique);
+        //TODO: Bulk Upsert -> Return Inserted/Updated objects
       } else {
         await validateInput(
           data,
@@ -100,6 +102,14 @@ module.exports = function model(
             [[primary_key, "=", updateResult.id]],
           ]);
           return getResult.count > 0 ? getResult["data"][0] : null;
+        } else if (data.hasOwnProperty(primary_key)) {
+          const result = await db.get(
+            table,
+            [[[primary_key, "=", data[primary_key]]]],
+            option.safeDelete
+          );
+          if (result.count > 0) return result["data"][0];
+          else return null;
         }
       }
       return updateResult;
@@ -122,9 +132,19 @@ module.exports = function model(
         throw new Error("Invalid id value", { cause: { status: 422 } });
       }
     },
+    //TODO: Implement Sort Logic
     find: async (data) => {
       let filter = dataToFilter(jsonSafeParse(data), primary_key);
       return await db.get(table, filter, option.safeDelete);
+    },
+    findOne: async (data) => {
+      let filter = dataToFilter(jsonSafeParse(data), primary_key);
+      let result = await db.get(table, filter, option.safeDelete);
+      if (result.count > 0) {
+        return result["data"][0];
+      } else {
+        return false;
+      }
     },
     list: async (data) => {
       let page = 0;

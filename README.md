@@ -3,7 +3,7 @@
 Generative API Creation using mysql2 and express libraries in node js
 
 ```
-const { db, model,route } = require("mysql2-express-crud");
+const { db, model,route } = require("mysql-model-router");
 db.connect({
   connectionLimit: 100,
   host: process.env.DB_HOST,
@@ -18,6 +18,7 @@ let test = model( db,
   "test", //table name
   {//table data structure
     test_id: "required|integer",
+    user_id: "required|integer",
     name: "required|string",
     description: "required|string",
     type: "required|integer",
@@ -25,10 +26,10 @@ let test = model( db,
     is_deleted: "boolean"
   },
   "test_id",//primary key/ auto increment key
-  ["test_id"],//array of columns which makes the row unique
+  [],//array of columns which makes the row unique
   { safeDelete: "is_deleted" }//column used to declare safe delete option
   )
-app.use("/test", route(test)); // create 8 endpoints
+app.use("/test", route(test),{"user_id":"session.user.user_id"}); // create 8 endpoints with overides to filter data based on user_id,tenant_id from request session
 
 Induvidual
 GET /:id

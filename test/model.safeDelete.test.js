@@ -38,6 +38,7 @@ describe("Model Function Safe Delete", function () {
         "PRIMARY KEY (`test_id`)" +
         ") ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8mb4"
     ).then((data) => {
+      console.log(data);
       done();
     });
   });

@@ -1,10 +1,14 @@
 const express = require("express");
 const { errorResponse } = require("./validator");
+const _ = require("lodash");
+const router = express.Router();
+router.upsert = function (path, callback) {
+  this.all(path, callback);
+};
 module.exports = function route(model, override = {}) {
-  return express
-    .Router()
+  return router
     .get("/:id", (req, res) => {
-      let payload = payloadOverride(req.body, req, override);
+      let payload = payloadOverride(req.query, req, override);
       payload[model.pk] = req.params.id;
       model
         .find(payload)
@@ -66,7 +70,7 @@ module.exports = function route(model, override = {}) {
     .post("/", (req, res) => {
       let payload = payloadOverride(req.body.data, req, override);
       model
-        .insert(payload)
+        .insert({ data: payload })
         .then((response) => {
           res.status(200).send(response);
         })
@@ -77,7 +81,7 @@ module.exports = function route(model, override = {}) {
     .put("/", (req, res) => {
       let payload = payloadOverride(req.body.data, req, override);
       model
-        .update(payload)
+        .update({ data: payload })
         .then((response) => {
           res.status(200).send(response);
         })
@@ -85,6 +89,7 @@ module.exports = function route(model, override = {}) {
           errorResponse(res, err);
         });
     })
+
     .delete("/", (req, res) => {
       let payload = payloadOverride(req.body.data, req, override);
       model
@@ -96,6 +101,44 @@ module.exports = function route(model, override = {}) {
           errorResponse(res, err);
         });
     });
+  //Custom Verbs
+  /*.all("/:id", (req, res) => {
+        console.log(req.method);
+        if (req.method === "UPSERT") {
+          let payload = payloadOverride(req.body, req, override);
+          payload[model.pk] = req.params.id;
+          model
+            .upsert(payload)
+            .then((response) => {
+              res.status(200).send(response);
+            })
+            .catch((err) => {
+              errorResponse(res, err);
+            });
+        } else {
+          res
+            .status(400)
+            .send({ message: "Invalid Http Verb", type: "danger" });
+        }
+      })
+      .all("/", (req, res) => {
+        console.log(req.method);
+        if (req.method === "UPSERT") {
+          let payload = payloadOverride(req.body.data, req, override);
+          model
+            .upsert({ data: payload })
+            .then((response) => {
+              res.status(200).send(response);
+            })
+            .catch((err) => {
+              errorResponse(res, err);
+            });
+        } else {
+          res
+            .status(400)
+            .send({ message: "Invalid Http Verb", type: "danger" });
+        }
+      })*/
 };
 function payloadOverride(payload, req, override) {
   if (Array.isArray(payload)) {
@@ -108,19 +151,8 @@ function payloadOverride(payload, req, override) {
   return payload;
 }
 function dataOverride(payload, req, override) {
-  for (const [key, path] in override) {
-    if (Array.isArray(path)) payload[key] = objectSelecter(req, path);
-    else if (typeof path === "string") payload[key] = path;
+  for (const key in override) {
+    payload[key] = _.get(req, override[key], "");
   }
   return payload;
-}
-function objectSelecter(obj, picker) {
-  for (let i of picker) {
-    if (obj.hasOwnProperty(i)) {
-      obj = obj[i];
-    } else {
-      return null;
-    }
-  }
-  return obj;
 }

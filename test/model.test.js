@@ -209,6 +209,28 @@ describe("Model Function", function () {
     });
   });
   describe("find", function () {
+    it("findOne an Entry by Id", function (done) {
+      test
+        .findOne({ test_id })
+        .then((data) => {
+          assert.equal(test_id, data.test_id);
+          done();
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    });
+    it("findOne an Entry by Invalid Id", function (done) {
+      test
+        .findOne({ test_id: -1 })
+        .then((data) => {
+          assert.equal(false, data);
+          done();
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    });
     it("find an Entry by Id", function (done) {
       test
         .find(test_id)

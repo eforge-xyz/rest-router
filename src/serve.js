@@ -41,14 +41,20 @@ const test = model(
     description: "string",
     type: "required|integer",
     info: "required|object",
-    is_deleted: "boolean",
+    is_deleted: "required|boolean",
   },
   "test_id",
   [],
   { safeDelete: "is_deleted" }
 );
-app.use("/test", route(test, { user_id: ["session", "user", "user_id"] }));
-
+app.use((req, res, next) => {
+  req.user = { user_id: "2" };
+  next();
+});
+app.use("/test", route(test, { user_id: "user.user_id" }));
+app.use("*", (req, res) => {
+  res.send({ message: "Not Found" });
+});
 app.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`);
 });
