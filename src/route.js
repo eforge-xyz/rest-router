@@ -1,12 +1,9 @@
 const express = require("express");
 const { errorResponse } = require("./validator");
 const _ = require("lodash");
-const router = express.Router({ mergeParams: true });
-router.upsert = function (path, callback) {
-  this.all(path, callback);
-};
 module.exports = function route(model, override = {}) {
-  return router
+  return express
+    .Router({ mergeParams: true })
     .get("/:id", (req, res) => {
       let payload = payloadOverride(req.query, req, override);
       payload[model.pk] = req.params.id;
