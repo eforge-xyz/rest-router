@@ -1,4 +1,4 @@
-# mysql2-express-crud
+# mysql-model-router
 
 Generative API Creation using mysql2 and express libraries in node js
 

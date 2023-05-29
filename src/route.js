@@ -1,7 +1,7 @@
 const express = require("express");
 const { errorResponse } = require("./validator");
 const _ = require("lodash");
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 router.upsert = function (path, callback) {
   this.all(path, callback);
 };
