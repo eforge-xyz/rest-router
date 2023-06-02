@@ -124,6 +124,7 @@ module.exports = function model(
         const result = await db.get(
           table,
           [[[primary_key, "=", id]]],
+          [],
           option.safeDelete
         );
         if (result.count > 0) return result["data"][0];
@@ -134,12 +135,24 @@ module.exports = function model(
     },
     //TODO: Implement Sort Logic
     find: async (data) => {
+      let sort = [];
+      if (data.hasOwnProperty("sort")) {
+        sort = data.sort;
+        delete data.sort;
+        sort = jsonSafeParse(sort);
+      }
       let filter = dataToFilter(jsonSafeParse(data), primary_key);
-      return await db.get(table, filter, option.safeDelete);
+      return await db.get(table, filter, sort, option.safeDelete);
     },
     findOne: async (data) => {
+      let sort = [];
+      if (data.hasOwnProperty("sort")) {
+        sort = data.sort;
+        delete data.sort;
+        sort = jsonSafeParse(sort);
+      }
       let filter = dataToFilter(jsonSafeParse(data), primary_key);
-      let result = await db.get(table, filter, option.safeDelete);
+      let result = await db.get(table, filter, sort, option.safeDelete);
       if (result.count > 0) {
         return result["data"][0];
       } else {
@@ -149,6 +162,7 @@ module.exports = function model(
     list: async (data) => {
       let page = 0;
       let size = 30;
+      let sort = [];
       if (data.hasOwnProperty("page")) {
         page = data.page;
         delete data.page;
@@ -157,8 +171,13 @@ module.exports = function model(
         size = data.size;
         delete data.size;
       }
+      if (data.hasOwnProperty("sort")) {
+        sort = data.sort;
+        delete data.sort;
+      }
       let filter = dataToFilter(jsonSafeParse(data), primary_key);
-      return await db.list(table, filter, option.safeDelete, page, size);
+      sort = jsonSafeParse(sort);
+      return await db.list(table, filter, sort, option.safeDelete, page, size);
     },
     pk: primary_key,
     modelStructure,

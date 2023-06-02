@@ -107,6 +107,17 @@ function dataToFilter(data, primary_key) {
   let type = getType(data);
   if (data.hasOwnProperty("filter") && getType(data.filter) === "array") {
     filter = data.filter;
+    if (Object.keys(data).length > 1) {
+      delete data.filter;
+      let filter2 = objectToFilter(data);
+      if (filter.toString().length > 0) {
+        for (let item1 of filter) {
+          item1.push(filter2[0][0]);
+        }
+      } else {
+        filter = filter2;
+      }
+    }
   } else if (type === "object" && Object.keys(data).length > 0) {
     filter = objectToFilter(data);
   } else if (type === "number" || type === "string") {

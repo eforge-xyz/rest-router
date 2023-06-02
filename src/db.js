@@ -17,6 +17,31 @@ function query(sql, parameter = []) {
     });
   });
 }
+
+function sort_builder(sort) {
+  if (sort.length < 1) {
+    return {
+      query: "",
+      value: [],
+    };
+  }
+  let query_item = [];
+  let value = [];
+  for (const item of sort) {
+    if (item[0] === "-") {
+      query_item.push("?? DESC");
+      value.push(item.replace("-", ""));
+    } else {
+      query_item.push("?? ASC");
+      value.push(item);
+    }
+  }
+  let query = "ORDER BY " + query_item.join(",");
+  return {
+    query,
+    value,
+  };
+}
 function where(filter, safeDelete = null) {
   try {
     if (
@@ -75,7 +100,7 @@ function where(filter, safeDelete = null) {
     value,
   };
 }
-function get(table, filter = [], safeDelete = null) {
+function get(table, filter = [], sort = [], safeDelete = null) {
   const response = {};
   return new Promise((resolve, reject) => {
     if (safeDelete !== null) {
@@ -84,10 +109,11 @@ function get(table, filter = [], safeDelete = null) {
       }
     }
     const whereData = where(filter, safeDelete);
-    const statement = `SELECT * FROM ?? ${whereData["query"]};`;
+    const sortData = sort_builder(sort);
+    const statement = `SELECT * FROM ?? ${whereData["query"]} ${sortData["query"]};`;
     pool.query(
       statement,
-      [table, ...whereData["value"]],
+      [table, ...whereData["value"], ...sortData["value"]],
       function (error, results) {
         if (error) {
           reject({ message: error.sqlMessage });
@@ -102,18 +128,25 @@ function get(table, filter = [], safeDelete = null) {
   });
 }
 
-function list(table, filter = [], safeDelete = null, page = 0, limit = 30) {
+function list(
+  table,
+  filter = [],
+  sort = [],
+  safeDelete = null,
+  page = 0,
+  limit = 30
+) {
   const response = {};
   return new Promise((resolve, reject) => {
     const whereData = where(filter, safeDelete);
-    //console.log(filter, whereData);
+    const sortData = sort_builder(sort);
     if (whereData == null) {
       reject({ message: WHERE_INVALID });
     }
-    const statement = `SELECT * FROM ?? ${whereData["query"]} LIMIT ? OFFSET ?;`;
+    const statement = `SELECT * FROM ?? ${whereData["query"]} ${sortData["query"]} LIMIT ? OFFSET ?;`;
     pool.query(
       statement,
-      [table, ...whereData["value"], limit, page * limit],
+      [table, ...whereData["value"], ...sortData["value"], limit, page * limit],
       function (error, results) {
         if (error) {
           reject({ message: error.sqlMessage });
