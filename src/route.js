@@ -4,13 +4,13 @@ const _ = require("lodash");
 module.exports = function route(model, override = {}) {
   return express
     .Router({ mergeParams: true })
-    .get("/:id", (req, res) => {
+    .get("/:" + model.pk, (req, res) => {
       let payload = payloadOverride(
         { ...req.query, ...req.params },
         req,
         override
       );
-      payload[model.pk] = req.params.id;
+      payload[model.pk] = req.params[model.pk];
       model
         .find(payload)
         .then((response) => {
