@@ -5,7 +5,11 @@ module.exports = function route(model, override = {}) {
   return express
     .Router({ mergeParams: true })
     .get("/:id", (req, res) => {
-      let payload = payloadOverride(req.query, req, override);
+      let payload = payloadOverride(
+        { ...req.query, ...req.params },
+        req,
+        override
+      );
       payload[model.pk] = req.params.id;
       model
         .find(payload)
@@ -54,7 +58,11 @@ module.exports = function route(model, override = {}) {
         });
     })
     .get("/", (req, res) => {
-      let payload = payloadOverride(req.query, req, override);
+      let payload = payloadOverride(
+        { ...req.query, ...req.params },
+        req,
+        override
+      );
       model
         .list(payload)
         .then((response) => {
