@@ -159,5 +159,10 @@ function dataOverride(payload, req, override) {
   for (const key in override) {
     payload[key] = _.get(req, override[key], "");
   }
+  for (const key in payload) {
+    if (payload[key] === "null") {
+      delete payload[key];
+    }
+  }
   return payload;
 }
