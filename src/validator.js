@@ -112,7 +112,9 @@ function dataToFilter(data, primary_key) {
       let filter2 = objectToFilter(data);
       if (filter.toString().length > 0) {
         for (let item1 of filter) {
-          item1.push(filter2[0][0]);
+          for (let item2 of filter2[0]) {
+            item1.push(item2);
+          }
         }
       } else {
         filter = filter2;
