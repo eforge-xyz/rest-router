@@ -106,7 +106,7 @@ function dataToFilter(data, primary_key) {
   let filter = [];
   let type = getType(data);
   if (data.hasOwnProperty("filter") && getType(data.filter) === "array") {
-    filter = data.filter;
+    filter = JSON.parse(JSON.stringify(data.filter));
     if (Object.keys(data).length > 1) {
       delete data.filter;
       let filter2 = objectToFilter(data);
