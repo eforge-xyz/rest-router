@@ -61,15 +61,16 @@ module.exports = function model(
         data = RemoveUnknownData(modelStructure, [data]);
         data = jsonStringify(data);
         updateResult = await db.upsert(table, data, unique);
-        if (updateResult.hasOwnProperty("id")) {
+        if (updateResult.hasOwnProperty("id") && updateResult.id > 0) {
           const getResult = await db.get(table, [
             [[primary_key, "=", updateResult.id]],
           ]);
           return getResult.count > 0 ? getResult["data"][0] : null;
-        } else if (data.hasOwnProperty(primary_key)) {
+        } else if (data[0].hasOwnProperty(primary_key)) {
           const result = await db.get(
             table,
-            [[[primary_key, "=", data[primary_key]]]],
+            [[[primary_key, "=", data[0][primary_key]]]],
+            [],
             option.safeDelete
           );
           if (result.count > 0) return result["data"][0];

@@ -19,13 +19,13 @@ function jsonStringify(obj) {
     if (!Array.isArray(obj)) {
       for (const i in obj) {
         if (typeof obj[i] === "object") {
-          obj[i] = JSON.stringify(obj[i]);
+          if (obj[i] != null) obj[i] = JSON.stringify(obj[i]);
         }
       }
       return obj;
     } else {
       for (const i in obj) {
-        obj[i] = jsonStringify(obj[i]);
+        if (obj[i] != null) obj[i] = jsonStringify(obj[i]);
       }
       return obj;
     }
