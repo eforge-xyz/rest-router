@@ -1,6 +1,6 @@
 {
   "name": "mysql-model-router",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Generative API Creation using mysql2 and express libraries in node js",
   "main": "src/index.js",
   "scripts": {

@@ -69,7 +69,18 @@ function where(filter, safeDelete = null) {
       filterItem.push([safeDelete, "=", 0]);
     }
   }
-  const valid_conditionals = ["=", "like", "in", "<", ">", "<=", ">=", "!="];
+  const valid_conditionals = [
+    "=",
+    "like",
+    "not like",
+    "in",
+    "not in",
+    "<",
+    ">",
+    "<=",
+    ">=",
+    "!=",
+  ];
   let conditionOr = [];
   let value = [];
   for (const i of filter) {
@@ -78,14 +89,14 @@ function where(filter, safeDelete = null) {
       if (!valid_conditionals.includes(j[1])) {
         return null;
       }
-      if (j[1] === "in" && !Array.isArray(j[2])) {
+      if ((j[1] === "in" || j[1] === "not in") && !Array.isArray(j[2])) {
         return null;
       }
-      if (j[1] === "in") {
-        conditionAnd.push("?? in " + arrayParam(j[2].length) + "");
+      if (j[1] === "in" || j[1] === "not in") {
+        conditionAnd.push("?? " + j[1] + " " + arrayParam(j[2].length) + "");
         value.push(j[0], ...j[2]);
-      } else if (j[1] === "like") {
-        conditionAnd.push("?? like ?");
+      } else if (j[1] === "like" || j[1] === "not like") {
+        conditionAnd.push("?? " + j[1] + " ?");
         value.push(j[0], "%" + j[2] + "%");
       } else {
         conditionAnd.push("?? " + j[1] + " ?");
