@@ -23,7 +23,7 @@ module.exports = function route(model, override = {}) {
     })
     .post("/:id", (req, res) => {
       let payload = payloadOverride(req.body, req, override);
-      payload[model.pk] = req.params.id;
+      delete payload[model.pk];
       model
         .insert(payload)
         .then((response) => {
@@ -36,10 +36,23 @@ module.exports = function route(model, override = {}) {
     .put("/:id", (req, res) => {
       let payload = payloadOverride(req.body, req, override);
       payload[model.pk] = req.params.id;
+      let validateAccessPayload = payloadOverride({}, req, override);
+      validateAccessPayload[model.pk] = req.params.id;
       model
-        .update(payload)
-        .then((response) => {
-          res.status(200).send(response);
+        .findOne(validateAccessPayload)
+        .then((found) => {
+          if (found) {
+            model
+              .update(payload)
+              .then((response) => {
+                res.status(200).send(response);
+              })
+              .catch((err) => {
+                errorResponse(res, err);
+              });
+          } else {
+            res.status(404).send({ message: "Not Found", type: "danger" });
+          }
         })
         .catch((err) => {
           errorResponse(res, err);
@@ -48,10 +61,23 @@ module.exports = function route(model, override = {}) {
     .delete("/:id", (req, res) => {
       let payload = payloadOverride(req.body, req, override);
       payload[model.pk] = req.params.id;
+      let validateAccessPayload = payloadOverride({}, req, override);
+      validateAccessPayload[model.pk] = req.params.id;
       model
-        .remove(payload)
-        .then((response) => {
-          res.status(200).send(response);
+        .findOne(validateAccessPayload)
+        .then((found) => {
+          if (found) {
+            model
+              .remove(payload)
+              .then((response) => {
+                res.status(200).send(response);
+              })
+              .catch((err) => {
+                errorResponse(res, err);
+              });
+          } else {
+            res.status(404).send({ message: "Not Found", type: "danger" });
+          }
         })
         .catch((err) => {
           errorResponse(res, err);
