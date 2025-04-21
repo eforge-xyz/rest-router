@@ -1,4 +1,4 @@
-function jsonSafeParse(obj) {
+/*function jsonSafeParse(obj) {
   if (typeof obj === "string") {
     try {
       return JSON.parse(obj);
@@ -6,6 +6,29 @@ function jsonSafeParse(obj) {
       return obj;
     }
   } else if (typeof obj === "object") {
+    for (const i in obj) {
+      obj[i] = jsonSafeParse(obj[i]);
+    }
+    return obj;
+  } else {
+    return obj;
+  }
+}*/
+function jsonSafeParse(obj) {
+  if (typeof obj === "string") {
+    try {
+      const parsed = JSON.parse(obj, (key, value) => {
+        // Convert numbers larger than MAX_SAFE_INTEGER to strings
+        if (typeof value === "number" && value > Number.MAX_SAFE_INTEGER) {
+          return obj[key].toString();
+        }
+        return value;
+      });
+      return parsed;
+    } catch (err) {
+      return obj;
+    }
+  } else if (typeof obj === "object" && obj !== null) {
     for (const i in obj) {
       obj[i] = jsonSafeParse(obj[i]);
     }

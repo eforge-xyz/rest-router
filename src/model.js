@@ -88,6 +88,7 @@ module.exports = function model(
           getPayloadValidator("CREATE", modelStructure, primary_key, true)
         );
         data = data.data;
+        data = RemoveUnknownData(modelStructure, data);
         data = jsonStringify(data);
         updateResult = await db.upsert(table, data, unique);
         //TODO: Bulk Upsert -> Return Inserted/Updated objects
@@ -96,6 +97,7 @@ module.exports = function model(
           data,
           getPayloadValidator("CREATE", modelStructure, primary_key, false)
         );
+        data = RemoveUnknownData(modelStructure, [data]);
         data = jsonStringify(data);
         updateResult = await db.upsert(table, data, unique);
         if (updateResult.hasOwnProperty("id")) {
